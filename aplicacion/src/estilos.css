@@ -108,3 +108,37 @@ textarea { resize: vertical; }
 .sin-imagen { display: flex; align-items: center; justify-content: center; background: var(--panel-2); color: var(--suave); }
 @media (max-width: 1200px) { .ajustes { grid-template-columns: 1fr; } }
 input[type="color"] { height: 38px; padding: 3px; cursor: pointer; }
+/* Panel lateral para crear/editar productos */
+dialog.hoja { margin: 0 0 0 auto; height: 100vh; max-height: 100vh; width: min(520px, 100vw); border-radius: 0; border-width: 0 0 0 1px; padding: 0; }
+dialog.hoja[open] { animation: entrar .22s cubic-bezier(.16, 1, .3, 1); }
+@keyframes entrar { from { transform: translateX(24px); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { dialog.hoja[open] { animation: none; } }
+.hoja form { display: flex; flex-direction: column; height: 100%; }
+.hoja-cabecera { display: flex; justify-content: space-between; align-items: flex-start; padding: 18px 22px 14px; border-bottom: 1px solid var(--borde); }
+.hoja-cabecera h2 { margin: 0 0 2px; font-size: 18px; }
+.hoja-cabecera small { color: var(--suave); font-size: 11px; }
+.hoja-cuerpo { flex: 1; overflow: auto; padding: 18px 22px; }
+.hoja-pie { display: flex; justify-content: space-between; align-items: center; padding: 14px 22px; border-top: 1px solid var(--borde); background: var(--panel); }
+button.icono { padding: 6px; display: flex; background: none; border-color: transparent; color: var(--suave); }
+button.icono:hover { color: var(--texto); background: var(--panel-2); }
+fieldset { border: 0; padding: 0; margin: 0 0 20px; }
+legend { font: 600 13px var(--sans); color: var(--texto); padding: 0; margin-bottom: 10px; }
+.foto-zona { height: 180px; margin-bottom: 22px; border: 1.5px dashed var(--borde); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--suave); cursor: pointer; position: relative; overflow: hidden; transition: border-color .15s, background .15s; }
+.foto-zona:hover, .foto-zona:focus-visible, .foto-zona.arrastrando { border-color: var(--primario); background: color-mix(in srgb, var(--primario) 8%, transparent); color: var(--texto); outline: none; }
+.foto-zona b { font: 600 14px var(--sans); color: var(--texto); }
+.foto-zona small { font-size: 11px; }
+.foto-zona.con-foto { border-style: solid; }
+.foto-zona img { width: 100%; height: 100%; object-fit: contain; background: var(--panel-2); }
+.foto-acciones { position: absolute; bottom: 10px; right: 10px; display: flex; gap: 6px; }
+.foto-acciones button { padding: 5px 10px; font-size: 12px; box-shadow: 0 2px 8px #0005; }
+.con-boton { display: flex; gap: 6px; margin-top: 4px; } .con-boton input { margin: 0; } .con-boton button { white-space: nowrap; padding: 0 10px; }
+.con-prefijo { display: flex; align-items: center; margin-top: 4px; border: 1px solid var(--borde); border-radius: 6px; background: var(--fondo); }
+.con-prefijo:focus-within { outline: 2px solid var(--primario-claro); outline-offset: 1px; }
+.con-prefijo i { font-style: normal; padding: 0 0 0 10px; color: var(--suave); }
+.con-prefijo input { border: 0; margin: 0; outline: none; font-variant-numeric: tabular-nums; }
+.calculo { display: flex; gap: 8px; padding: 10px 12px; border-radius: 8px; background: var(--panel-2); font: 11px var(--mono); color: var(--suave); }
+.calculo span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.calculo b { font: 600 15px var(--mono); color: var(--texto); }
+.calculo.ok span:first-child b { color: var(--secundario-claro); }
+.calculo.agotado span:first-child b, .calculo.agotado span:nth-child(2) b { color: var(--peligro); }
+::selection { background: color-mix(in srgb, var(--primario) 35%, transparent); }

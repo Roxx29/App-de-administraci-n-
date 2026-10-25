@@ -47,7 +47,13 @@ function leerImagen(archivo, max, tipo) {
       const c = document.createElement('canvas');
       c.width = Math.round(img.width * k);
       c.height = Math.round(img.height * k);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const ctx = c.getContext('2d');
+      // JPEG no tiene transparencia: sin fondo blanco, las zonas transparentes salen negras.
+      if (tipo === 'image/jpeg') {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, c.width, c.height);
+      }
+      ctx.drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(img.src);
       ok(c.toDataURL(tipo, 0.85));
     };
@@ -414,58 +420,122 @@ function rangoPeriodo() {
   return [diaLocal(new Date(h.getFullYear(), h.getMonth(), 1)), diaLocal(new Date(h.getFullYear(), h.getMonth() + 1, 0))];
 }
 
+const ICONO_IMAGEN = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-4.5-4.5L6 21"/></svg>';
+const ICONO_CERRAR = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+
 function formularioProducto(p) {
   const dlg = $('#dialogo');
   let imagen = p?.imagen || '';
+  const m = esc(datos.ajustes.moneda);
+  const categorias = [...new Set(datos.productos.map((x) => x.categoria).filter(Boolean))];
+  dlg.className = 'hoja';
   dlg.innerHTML = `
-    <form method="dialog" id="form-producto">
-      <h2>${p ? t('Editar producto') : t('Nuevo producto')}</h2>
-      ${conImagenes() ? `<div class="foto-campo"><div id="foto-vista">${miniatura({ imagen }, 'foto-grande')}</div>
-        <div class="acciones"><button type="button" id="elegir-foto">${t('Elegir imagen')}</button><button type="button" class="peligro" id="quitar-foto" ${imagen ? '' : 'hidden'}>${t('Quitar')}</button></div>
-        <input type="file" id="archivo-foto" accept="image/*" hidden></div>` : ''}
-      <div class="dos">
-        <label>${t('Nombre')}<input name="nombre" required value="${esc(p?.nombre)}"></label>
-        <label>${t('SKU / Código')}<input name="sku" required value="${esc(p?.sku)}"></label>
-        <label>${t('Categoría')}<input name="categoria" value="${esc(p?.categoria)}"></label>
-        <label>${t('Stock actual')}<input name="stock" type="number" min="0" step="1" required value="${p?.stock ?? 0}"></label>
-        <label>${t('Costo de compra')}<input name="costo" inputmode="decimal" required value="${p ? decimal(p.costo) : ''}" placeholder="0,00"></label>
-        <label>${t('Precio de venta (IVA incl.)')}<input name="precio" inputmode="decimal" required value="${p ? decimal(p.precio) : ''}" placeholder="0,00"></label>
-        <label>${t('Stock mínimo (alerta)')}<input name="minimo" type="number" min="0" step="1" required value="${p?.minimo ?? 0}"></label>
+    <form method="dialog" id="form-producto" novalidate>
+      <header class="hoja-cabecera">
+        <div><h2>${p ? t('Editar producto') : t('Nuevo producto')}</h2><small>${p ? esc(p.sku) : t('Completa los datos y guarda')}</small></div>
+        <button type="button" class="icono" id="cancelar" aria-label="${t('Cerrar')}">${ICONO_CERRAR}</button>
+      </header>
+      <div class="hoja-cuerpo">
+        <div class="foto-zona" id="foto-zona" tabindex="0" role="button" aria-label="${t('Elegir imagen')}"></div>
+        <input type="file" id="archivo-foto" accept="image/*" hidden>
+
+        <fieldset><legend>${t('Información')}</legend>
+          <label>${t('Nombre del producto')} *<input name="nombre" required value="${esc(p?.nombre)}" placeholder="${t('Ej.: Lámpara de mesa')}" autocomplete="off"></label>
+          <div class="dos">
+            <label>${t('SKU / Código')} *<span class="con-boton"><input name="sku" required value="${esc(p?.sku)}" placeholder="SKU-0001" autocomplete="off"><button type="button" id="generar-sku">${t('Generar')}</button></span></label>
+            <label>${t('Categoría')}<input name="categoria" list="lista-categorias" value="${esc(p?.categoria)}" placeholder="${t('Ej.: Accesorios')}" autocomplete="off">
+              <datalist id="lista-categorias">${categorias.map((c) => `<option value="${esc(c)}">`).join('')}</datalist></label>
+          </div>
+        </fieldset>
+
+        <fieldset><legend>${t('Precio')}</legend>
+          <div class="dos">
+            <label>${t('Costo de compra')} *<span class="con-prefijo"><i>${m}</i><input name="costo" inputmode="decimal" required value="${p ? decimal(p.costo) : ''}" placeholder="0,00"></span></label>
+            <label>${t('Precio de venta (IVA incl.)')} *<span class="con-prefijo"><i>${m}</i><input name="precio" inputmode="decimal" required value="${p ? decimal(p.precio) : ''}" placeholder="0,00"></span></label>
+          </div>
+          <div class="calculo" id="calculo" aria-live="polite"></div>
+        </fieldset>
+
+        <fieldset><legend>${t('Inventario')}</legend>
+          <div class="dos">
+            <label>${t('Stock actual')}<input name="stock" type="number" min="0" step="1" required value="${p?.stock ?? 0}"></label>
+            <label>${t('Avisar cuando queden')}<input name="minimo" type="number" min="0" step="1" required value="${p?.minimo ?? 0}"></label>
+          </div>
+          <small class="ayuda">${t('Cuando el stock llegue a ese número verás una alerta en el Resumen.')}</small>
+        </fieldset>
+        <p class="error" id="error-producto" role="alert"></p>
       </div>
-      <p class="error" id="error-producto"></p>
-      <div class="acciones" style="justify-content:space-between">
+      <footer class="hoja-pie">
         ${p ? `<button type="button" class="peligro" id="borrar">${t('Eliminar')}</button>` : '<span></span>'}
-        <div class="acciones"><button type="button" id="cancelar">${t('Cancelar')}</button><button class="primario">${t('Guardar')}</button></div>
-      </div>
+        <div class="acciones"><button type="button" id="cancelar-pie">${t('Cancelar')}</button><button class="primario">${p ? t('Guardar cambios') : t('Crear producto')}</button></div>
+      </footer>
     </form>`;
+  const form = $('#form-producto');
   dlg.showModal();
-  $('#cancelar').onclick = () => dlg.close();
-  if (conImagenes()) {
-    const pintarFoto = () => {
-      $('#foto-vista').innerHTML = miniatura({ imagen }, 'foto-grande');
-      $('#quitar-foto').hidden = !imagen;
-    };
-    $('#elegir-foto').onclick = () => $('#archivo-foto').click();
-    $('#archivo-foto').onchange = async (e) => {
-      try {
-        imagen = await leerImagen(e.target.files[0], 320, 'image/jpeg');
-        pintarFoto();
-      } catch (err) {
-        $('#error-producto').textContent = err.message;
-      }
-    };
-    $('#quitar-foto').onclick = () => {
-      imagen = '';
+  form.elements.nombre.focus();
+  dlg.onclose = () => (dlg.className = '');
+  $('#cancelar').onclick = $('#cancelar-pie').onclick = () => dlg.close();
+
+  const pintarFoto = () => {
+    $('#foto-zona').innerHTML = imagen
+      ? `<img src="${imagen}" alt=""><div class="foto-acciones"><button type="button" id="cambiar-foto">${t('Cambiar')}</button><button type="button" class="peligro" id="quitar-foto">${t('Quitar')}</button></div>`
+      : `${ICONO_IMAGEN}<b>${t('Añadir imagen')}</b><small>${t('Arrastra una foto aquí o haz clic')}</small>`;
+    $('#foto-zona').classList.toggle('con-foto', !!imagen);
+  };
+  const cargarFoto = async (archivo) => {
+    if (!archivo) return;
+    try {
+      imagen = await leerImagen(archivo, 480, 'image/jpeg');
+      $('#error-producto').textContent = '';
       pintarFoto();
-    };
-  }
+    } catch (err) {
+      $('#error-producto').textContent = err.message;
+    }
+  };
+  const zona = $('#foto-zona');
+  zona.onclick = (e) => {
+    if (e.target.id === 'quitar-foto') { imagen = ''; return pintarFoto(); }
+    $('#archivo-foto').click();
+  };
+  zona.onkeydown = (e) => (e.key === 'Enter' || e.key === ' ') && e.target === zona && (e.preventDefault(), $('#archivo-foto').click());
+  zona.ondragover = (e) => { e.preventDefault(); zona.classList.add('arrastrando'); };
+  zona.ondragleave = () => zona.classList.remove('arrastrando');
+  zona.ondrop = (e) => { e.preventDefault(); zona.classList.remove('arrastrando'); cargarFoto(e.dataTransfer.files[0]); };
+  $('#archivo-foto').onchange = (e) => cargarFoto(e.target.files[0]);
+  pintarFoto();
+
+  // Ganancia y margen en vivo mientras se escriben los precios.
+  const calcular = () => {
+    const costo = aCentimos(form.elements.costo.value);
+    const precio = aCentimos(form.elements.precio.value);
+    const caja = $('#calculo');
+    if (Number.isNaN(costo) || Number.isNaN(precio) || !precio) {
+      caja.className = 'calculo';
+      caja.innerHTML = `<span>${t('Escribe costo y precio para ver la ganancia.')}</span>`;
+      return;
+    }
+    const neto = Math.round(precio / (1 + datos.ajustes.iva / 100));
+    const ganancia = neto - costo;
+    caja.className = 'calculo ' + (ganancia < 0 ? 'agotado' : 'ok');
+    caja.innerHTML = `<span>${t('Ganancia por unidad')}<b>${dinero(ganancia)}</b></span><span>${t('Margen')}<b>${Math.round((ganancia / neto) * 100)}%</b></span><span>${t('Precio sin IVA')}<b>${dinero(neto)}</b></span>`;
+  };
+  form.elements.costo.oninput = form.elements.precio.oninput = calcular;
+  calcular();
+
+  $('#generar-sku').onclick = () => {
+    const usados = new Set(datos.productos.map((x) => x.sku.toLowerCase()));
+    let sku;
+    do sku = 'SKU-' + String(Math.floor(1000 + Math.random() * 9000)); while (usados.has(sku.toLowerCase()));
+    form.elements.sku.value = sku;
+  };
+
   if (p) $('#borrar').onclick = async () => {
     if (!confirm(t('¿Eliminar "{n}"? Las facturas ya emitidas no cambian.', { n: p.nombre }))) return;
     if (await guardar({ ...datos, productos: datos.productos.filter((x) => x.id !== p.id) })) { dlg.close(); ir(); }
   };
-  $('#form-producto').onsubmit = async (e) => {
+  form.onsubmit = async (e) => {
     e.preventDefault();
-    const f = Object.fromEntries(new FormData(e.target));
+    const f = Object.fromEntries(new FormData(form));
     const nuevo = {
       id: p?.id || 'p' + Date.now().toString(36),
       nombre: f.nombre.trim(), sku: f.sku.trim(), categoria: f.categoria.trim(),
@@ -475,7 +545,9 @@ function formularioProducto(p) {
     const error = validarProducto(nuevo, datos.productos);
     if (error) return ($('#error-producto').textContent = error);
     const productos = p ? datos.productos.map((x) => (x.id === p.id ? nuevo : x)) : [...datos.productos, nuevo];
-    if (await guardar({ ...datos, productos })) { dlg.close(); avisar(t('Producto guardado')); ir(); }
+    // Si se añade una foto con las imágenes desactivadas, se activan para que se vea.
+    const ajustes = imagen && !datos.ajustes.imagenes ? { ...datos.ajustes, imagenes: true } : datos.ajustes;
+    if (await guardar({ ...datos, productos, ajustes })) { dlg.close(); avisar(t('Producto guardado')); ir(); }
   };
 }
 

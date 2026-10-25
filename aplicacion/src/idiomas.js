@@ -49,6 +49,12 @@ const TRADUCCIONES = {
     'El producto {n} ya no existe.': 'Product {n} no longer exists.', 'Cantidad no válida para {n}.': 'Invalid quantity for {n}.',
     'Stock insuficiente de {n} (quedan {s}).': 'Not enough stock of {n} ({s} left).', 'El concepto es obligatorio.': 'Description is required.',
     'Fecha no válida.': 'Invalid date.', 'El importe debe ser mayor que 0.': 'Amount must be greater than 0.', 'Categoría no válida.': 'Invalid category.',
+    'Cerrar': 'Close', 'Completa los datos y guarda': 'Fill in the details and save', 'Información': 'Details', 'Nombre del producto': 'Product name',
+    'Ej.: Lámpara de mesa': 'E.g.: Desk lamp', 'Generar': 'Generate', 'Ej.: Accesorios': 'E.g.: Accessories', 'Inventario': 'Inventory',
+    'Avisar cuando queden': 'Alert when stock reaches', 'Cuando el stock llegue a ese número verás una alerta en el Resumen.': 'When stock reaches that number you will see an alert in the Summary.',
+    'Guardar cambios': 'Save changes', 'Crear producto': 'Create product', 'Cambiar': 'Change', 'Añadir imagen': 'Add image',
+    'Arrastra una foto aquí o haz clic': 'Drag a photo here or click', 'Escribe costo y precio para ver la ganancia.': 'Enter cost and price to see the profit.',
+    'Ganancia por unidad': 'Profit per unit', 'Precio sin IVA': 'Price excl. tax',
     // Valores que se guardan en español y se traducen al mostrarlos
     'Óptimo': 'Optimal', 'Stock bajo': 'Low stock', 'Agotado': 'Out of stock', 'Mes anterior': 'Last month', 'Este año': 'This year', 'Todo': 'All',
     'Efectivo': 'Cash', 'Tarjeta': 'Card', 'Transferencia': 'Bank transfer', 'Domiciliación': 'Direct debit', 'Oscuro': 'Dark', 'Claro': 'Light',

@@ -8,3 +8,5 @@ psql -q -v ON_ERROR_STOP=1 -f migrations/001_registros.sql
 psql -q -v ON_ERROR_STOP=1 -f pruebas/01_semilla.sql
 psql -q -v ON_ERROR_STOP=1 -f migrations/002_equipo.sql
 psql -q -v ON_ERROR_STOP=1 -f pruebas/02_pruebas_rls.sql 2>&1 | grep -E "ok|FALLA"
+psql -q -v ON_ERROR_STOP=1 -f migrations/003_permisos_anulaciones.sql
+psql -q -v ON_ERROR_STOP=1 -f pruebas/03_pruebas_permisos.sql 2>&1 | grep -E "ok|FALLA"

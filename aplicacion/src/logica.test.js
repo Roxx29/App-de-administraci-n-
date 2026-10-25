@@ -102,3 +102,22 @@ test('ventas de dos equipos sin conexión se suman en el stock', () => {
   assert.strictEqual(L.conStock(recontado).productos[0].stock, 20);
   assert.strictEqual(L.siguienteNumero(juntos.ventas, ''), 2);
 });
+
+test('sobreventa sin conexión: stock negativo, descuadre y anulación', () => {
+  const base = { ...L.datosIniciales(), productos: [prod({ stockBase: 5 })] };
+  const cinco = [{ productoId: 'p1', sku: 'SKU-1', nombre: 'Mesa', precio: 100, cantidad: 5 }];
+  const online = L.registrarVenta(base, cinco, { metodo: 'Efectivo', vendedor: 'a@x.com', fecha: new Date('2026-10-25T10:00:00Z') }).venta;
+  const offline = L.registrarVenta(base, cinco, { metodo: 'Efectivo', serie: 'E2', vendedor: 'b@x.com', sinConexion: true, fecha: new Date('2026-10-25T10:05:00Z') }).venta;
+  const juntos = { ...base, ventas: [online, offline] };
+  assert.strictEqual(L.conStock(juntos).productos[0].stock, -5);
+  const [d] = L.descuadres(juntos);
+  assert.strictEqual(d.faltan, 5);
+  assert.deepStrictEqual(d.ventas.map((x) => x.venta.vendedor), ['b@x.com', 'a@x.com']);
+  assert.ok(d.ventas[0].venta.sinConexion);
+  const anulado = L.anularVenta(juntos, offline, { motivo: 'Sobreventa', por: 'admin@x.com' });
+  assert.strictEqual(L.conStock(anulado).productos[0].stock, 0, 'anular devuelve el stock');
+  assert.deepStrictEqual(L.descuadres(anulado), []);
+  assert.strictEqual(L.resumen(anulado, new Date('2026-10-25T12:00:00Z')).ventasTotal, 500, 'la anulada no suma');
+  assert.strictEqual(anulado.ventas.length, 2, 'la venta no se borra');
+  assert.throws(() => L.anularVenta(anulado, offline, {}), /ya está anulada/);
+});

@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('api', {
     invitar: (args) => ipcRenderer.invoke('equipo:invitar', args),
     cancelar: (email) => ipcRenderer.invoke('equipo:cancelar', email),
     cambiar: (args) => ipcRenderer.invoke('equipo:cambiar', args),
+    permisos: (args) => ipcRenderer.invoke('equipo:permisos', args),
   },
   alCambiarCuenta: (fn) => ipcRenderer.on('cuenta:cambio', (_e, v) => fn(v)),
   sincronizarAhora: () => ipcRenderer.invoke('sync:ahora'),

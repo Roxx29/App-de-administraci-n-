@@ -23,6 +23,7 @@ const datosIniciales = () => ({
   productos: [],
   ventas: [],
   gastos: [],
+  anulaciones: [],
 });
 
 // Completa con valores por defecto los datos guardados por versiones anteriores.
@@ -41,12 +42,38 @@ function normalizar(guardados) {
 function conStock(datos) {
   const fechaBase = new Map(datos.productos.map((p) => [p.id, p.stockFecha]));
   const vendido = new Map();
-  for (const v of datos.ventas) {
+  for (const v of ventasValidas(datos)) {
     for (const l of v.lineas) {
       if (fechaBase.has(l.productoId) && v.fecha > fechaBase.get(l.productoId)) vendido.set(l.productoId, (vendido.get(l.productoId) || 0) + l.cantidad);
     }
   }
   return { ...datos, productos: datos.productos.map((p) => ({ ...p, stock: p.stockBase - (vendido.get(p.id) || 0) })) };
+}
+
+// Las ventas anuladas no cuentan para stock, resúmenes ni informes (pero nunca se borran).
+function ventasValidas(datos) {
+  const anuladas = new Set((datos.anulaciones || []).map((a) => a.id));
+  return datos.ventas.filter((v) => !anuladas.has(v.id));
+}
+
+// Productos con stock negativo: se vendió más de lo que había (p. ej. ventas hechas sin conexión).
+// Devuelve cada uno con las ventas posteriores al último recuento, la más reciente primero.
+function descuadres(datos) {
+  const conS = conStock(datos);
+  return conS.productos.filter((p) => p.stock < 0).map((p) => ({
+    producto: p,
+    faltan: -p.stock,
+    ventas: ventasValidas(datos)
+      .filter((v) => v.fecha > p.stockFecha && v.lineas.some((l) => l.productoId === p.id))
+      .map((v) => ({ venta: v, cantidad: v.lineas.filter((l) => l.productoId === p.id).reduce((s, l) => s + l.cantidad, 0) }))
+      .reverse(),
+  }));
+}
+
+function anularVenta(datos, venta, { motivo, por, fecha = new Date() }) {
+  if ((datos.anulaciones || []).some((a) => a.id === venta.id)) throw new Error(tr('Esta venta ya está anulada.'));
+  const anulacion = { id: venta.id, numero: venta.numero, motivo: motivo || '', por: por || '', fecha: fecha.toISOString() };
+  return { ...datos, anulaciones: [...(datos.anulaciones || []), anulacion] };
 }
 
 const sinStock = (datos) => ({ ...datos, productos: datos.productos.map(({ stock, ...p }) => p) });
@@ -96,7 +123,7 @@ function siguienteNumero(ventas, serie = '') {
 }
 
 // Devuelve datos nuevos con la venta añadida (el stock baja solo, ver conStock); lanza error si no hay stock.
-function registrarVenta(datos, lineas, { metodo, cliente, fecha = new Date(), serie = '' }) {
+function registrarVenta(datos, lineas, { metodo, cliente, fecha = new Date(), serie = '', vendedor = '', sinConexion = false }) {
   if (!lineas.length) throw new Error(tr('El ticket está vacío.'));
   const productos = conStock(datos).productos;
   for (const l of lineas) {
@@ -110,6 +137,8 @@ function registrarVenta(datos, lineas, { metodo, cliente, fecha = new Date(), se
     id: crypto.randomUUID(), // único entre equipos que sincronizan
     numero: numeroFactura(fecha.getFullYear(), siguienteNumero(datos.ventas, serie), serie),
     serie,
+    vendedor, // informativo: el servidor guarda además quién la subió
+    sinConexion,
     fecha: fecha.toISOString(),
     cliente: cliente || tr('Cliente mostrador'),
     metodo,
@@ -125,12 +154,13 @@ function registrarVenta(datos, lineas, { metodo, cliente, fecha = new Date(), se
 
 function resumen(datos, hoy = new Date()) {
   const dia = diaLocal(hoy);
-  const deHoy = datos.ventas.filter((v) => diaLocal(v.fecha) === dia);
+  const validas = ventasValidas(datos);
+  const deHoy = validas.filter((v) => diaLocal(v.fecha) === dia);
   return {
     ventasHoy: deHoy.reduce((s, v) => s + v.total, 0),
     ticketsHoy: deHoy.length,
-    ventasTotal: datos.ventas.reduce((s, v) => s + v.total, 0),
-    valorInventario: datos.productos.reduce((s, p) => s + p.costo * p.stock, 0),
+    ventasTotal: validas.reduce((s, v) => s + v.total, 0),
+    valorInventario: datos.productos.reduce((s, p) => s + p.costo * Math.max(0, p.stock), 0),
     alertas: datos.productos.filter((p) => estadoStock(p) !== 'ok'),
   };
 }
@@ -146,7 +176,7 @@ function validarGasto(g) {
 // Rentabilidad entre dos fechas YYYY-MM-DD (ambas incluidas). Ingresos sin IVA.
 function informe(datos, desde, hasta) {
   const enRango = (dia) => dia >= desde && dia <= hasta;
-  const ventas = datos.ventas.filter((v) => enRango(diaLocal(v.fecha)));
+  const ventas = ventasValidas(datos).filter((v) => enRango(diaLocal(v.fecha)));
   const gastos = (datos.gastos || []).filter((g) => enRango(g.fecha));
   const costoActual = (id) => datos.productos.find((p) => p.id === id)?.costo ?? 0;
   const productos = {};
@@ -194,5 +224,5 @@ function serieMensual(datos, meses, hoy = new Date(), locale = 'es-ES') {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { conStock, sinStock, siguienteNumero, fijarTraductor, normalizar, facturaInicial, datosIniciales, aCentimos, formatoDinero, validarProducto, estadoStock, totalesTicket, numeroFactura, registrarVenta, resumen, CATEGORIAS_GASTO, diaLocal, validarGasto, informe, serieMensual };
+  module.exports = { ventasValidas, descuadres, anularVenta, conStock, sinStock, siguienteNumero, fijarTraductor, normalizar, facturaInicial, datosIniciales, aCentimos, formatoDinero, validarProducto, estadoStock, totalesTicket, numeroFactura, registrarVenta, resumen, CATEGORIAS_GASTO, diaLocal, validarGasto, informe, serieMensual };
 }

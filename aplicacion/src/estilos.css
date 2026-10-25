@@ -163,3 +163,16 @@ button.enlace { background: none; border: 0; padding: 0; color: var(--primario-c
 .tabla-equipo tr.pendiente td { color: var(--suave); }
 .invitar { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; margin-bottom: 6px; }
 .invitar select { width: auto; }
+/* Descuadres, anulaciones y permisos */
+.alerta-descuadre { border-color: color-mix(in srgb, var(--peligro) 55%, var(--borde)); margin-bottom: 18px; }
+.descuadre { padding: 10px 0; border-top: 1px solid var(--borde); }
+.descuadre table { margin-top: 6px; }
+tr.anulada td { color: var(--suave); }
+tr.anulada td:nth-child(6) { text-decoration: line-through; }
+.acciones.fin { justify-content: flex-end; flex-wrap: nowrap; }
+.aviso-sync { margin: -8px 0 14px; padding: 8px 12px; border-radius: 8px; background: var(--panel-2); font-size: 13px; }
+.foto-zona.bloqueada { cursor: not-allowed; opacity: .7; }
+input[readonly] { opacity: .65; cursor: not-allowed; }
+.fila-permisos td { background: var(--panel-2); }
+.ancho-completo { grid-column: 1 / -1; }
+.permisos { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 16px; padding: 6px 2px; }

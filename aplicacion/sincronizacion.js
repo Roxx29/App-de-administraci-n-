@@ -8,6 +8,7 @@ function registrosDe(datos) {
   for (const p of datos.productos) m.set(`producto:${p.id}`, { tipo: 'producto', id: p.id, datos: p });
   for (const v of datos.ventas) m.set(`venta:${v.id}`, { tipo: 'venta', id: v.id, datos: v });
   for (const g of datos.gastos || []) m.set(`gasto:${g.id}`, { tipo: 'gasto', id: g.id, datos: g });
+  for (const a of datos.anulaciones || []) m.set(`anulacion:${a.id}`, { tipo: 'anulacion', id: a.id, datos: a });
   m.set(CLAVE_AJUSTES, { tipo: 'ajustes', id: 'ajustes', datos: datos.ajustes });
   return m;
 }
@@ -23,7 +24,7 @@ function diferencias(antes, despues) {
 }
 
 function aplicar(datos, cambios) {
-  const listas = { producto: [...datos.productos], venta: [...datos.ventas], gasto: [...(datos.gastos || [])] };
+  const listas = { producto: [...datos.productos], venta: [...datos.ventas], gasto: [...(datos.gastos || [])], anulacion: [...(datos.anulaciones || [])] };
   let ajustes = datos.ajustes;
   for (const c of cambios) {
     if (c.tipo === 'ajustes') {
@@ -38,7 +39,7 @@ function aplicar(datos, cambios) {
     else lista.push(c.datos);
   }
   listas.venta.sort((x, y) => x.fecha.localeCompare(y.fecha));
-  return { ...datos, ajustes, productos: listas.producto, ventas: listas.venta, gastos: listas.gasto };
+  return { ...datos, ajustes, productos: listas.producto, ventas: listas.venta, gastos: listas.gasto, anulaciones: listas.anulacion };
 }
 
 const estadoInicial = () => ({ usuario: null, cursor: null, pendientes: {}, versiones: {} });

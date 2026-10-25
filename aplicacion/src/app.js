@@ -1,4 +1,4 @@
-/* global conStock, sinStock, t, fijarIdioma, htmlFactura, fijarTraductor, normalizar, facturaInicial, CATEGORIAS_GASTO, diaLocal, validarGasto, informe, serieMensual, totalesTicket, aCentimos, formatoDinero, validarProducto, estadoStock, registrarVenta, resumen */
+/* global descuadres, anularVenta, ventasValidas, conStock, sinStock, t, fijarIdioma, htmlFactura, fijarTraductor, normalizar, facturaInicial, CATEGORIAS_GASTO, diaLocal, validarGasto, informe, serieMensual, totalesTicket, aCentimos, formatoDinero, validarProducto, estadoStock, registrarVenta, resumen */
 let datos;
 let ticket = []; // líneas del ticket en curso
 let metodoPago = 'Efectivo';
@@ -7,9 +7,21 @@ let rev = 0; // versión de los datos que tiene esta pantalla (ver main.js)
 let cuentaEmail = null;
 let miRol = 'admin'; // 'admin' o 'trabajador' (sin cuenta en la nube, siempre admin)
 let miSerie = '';
+let misPermisos = [];
 const esAdmin = () => miRol === 'admin';
-// Vistas que ve un trabajador (la seguridad real la aplica el servidor).
-const VISTAS_TRABAJADOR = ['resumen', 'inventario', 'venta', 'ventas', 'ajustes'];
+// El admin puede todo; el resto, lo que el admin le haya activado (la seguridad real la aplica el servidor).
+const puedo = (permiso) => esAdmin() || misPermisos.includes(permiso);
+const puedoTocarProductos = () => ['editar_productos', 'editar_precios', 'ajustar_stock'].some(puedo);
+const PERMISO_VISTA = { gastos: 'gastos', informes: 'ver_informes' };
+const vistaPermitida = (v) => (PERMISO_VISTA[v] ? puedo(PERMISO_VISTA[v]) : true);
+const PERMISOS = [
+  ['crear_productos', 'Crear productos'], ['editar_productos', 'Editar productos (nombre, SKU, categoría, foto)'], ['editar_precios', 'Cambiar precios y costos'],
+  ['ajustar_stock', 'Ajustar stock (recuentos)'], ['anular_ventas', 'Anular ventas'], ['gastos', 'Ver y registrar gastos'],
+  ['ver_informes', 'Ver informes'], ['exportar', 'Exportar a Excel'], ['vender_sin_conexion', 'Vender sin conexión'],
+];
+const botonExportar = (id, activo = true) => (puedo('exportar') ? `<button id="${id}" ${activo ? '' : 'disabled'}>${t('Exportar a Excel')}</button>` : '');
+// Sin sincronizar hace más de 2 minutos, el stock puede no reflejar lo vendido en otros equipos.
+const sinSincronizar = () => !!cuentaEmail && (ultimoSync.estado !== 'ok' || Date.now() - new Date(ultimoSync.hora) > 120000);
 let ultimoSync = { estado: 'local' };
 
 const $ = (s) => document.querySelector(s);
@@ -73,9 +85,19 @@ function leerImagen(archivo, max, tipo) {
 const vistas = {
   resumen() {
     const r = resumen(datos);
-    const ultimas = datos.ventas.slice(-5).reverse();
+    const ultimas = ventasValidas(datos).slice(-5).reverse();
+    const faltas = descuadres(datos);
     return `
       <h1>${t('Resumen Diario')}</h1><p class="sub">${new Date().toLocaleDateString(locale(), { dateStyle: 'full' })}</p>
+      ${faltas.length ? `<section class="panel alerta-descuadre"><h2>${t('Descuadre de stock')}</h2>
+        <p class="sub">${t('Se vendió más de lo que había, normalmente por ventas hechas sin conexión en varios equipos. Recuenta el stock o anula la venta que no se pudo entregar.')}</p>
+        ${faltas.map((d) => `<div class="descuadre">
+          <div class="cabecera"><b>${esc(d.producto.nombre)} <small class="chip agotado">${t('Faltan {n}', { n: d.faltan })}</small></b>
+            ${puedo('ajustar_stock') ? `<button data-recontar="${d.producto.id}">${t('Recontar stock')}</button>` : ''}</div>
+          <table>${d.ventas.map(({ venta: v, cantidad }) => `<tr><td class="mono">${v.numero}</td><td>${fecha(v.fecha)}</td><td>${esc(v.vendedor || '—')}${v.sinConexion ? ` <small class="chip bajo">${t('sin conexión')}</small>` : ''}</td>
+            <td class="num">${t('{n} uds', { n: cantidad })}</td><td class="num">${puedo('anular_ventas') ? `<button data-anular="${v.id}">${t('Anular')}</button>` : ''}</td></tr>`).join('')}</table>
+        </div>`).join('')}
+      </section>` : ''}
       <div class="tarjetas">
         <div class="tarjeta"><small>${t('Ventas de hoy')}</small><div class="valor">${dinero(r.ventasHoy)}</div><small>${t('{n} tickets', { n: r.ticketsHoy })}</small></div>
         <div class="tarjeta"><small>${t('Ventas totales')}</small><div class="valor">${dinero(r.ventasTotal)}</div><small>${t('{n} facturas', { n: datos.ventas.length })}</small></div>
@@ -91,7 +113,7 @@ const vistas = {
   inventario() {
     return `
       <div class="cabecera"><div><h1>${t('Inventario & Catálogo')}</h1><p class="sub">${t('{n} productos', { n: datos.productos.length })}</p></div>
-        <div class="acciones"><button id="exportar-productos">${t('Exportar a Excel')}</button>${esAdmin() ? `<button class="primario" id="nuevo-producto">${t('+ Nuevo producto')}</button>` : ''}</div></div>
+        <div class="acciones">${botonExportar('exportar-productos')}${puedo('crear_productos') ? `<button class="primario" id="nuevo-producto">${t('+ Nuevo producto')}</button>` : ''}</div></div>
       <input class="buscador" id="buscar" placeholder="${t('Buscar por nombre, SKU o categoría…')}" aria-label="${t('Buscar productos')}">
       <div class="panel"><table>
         <thead><tr>${conImagenes() ? '<th></th>' : ''}<th>SKU</th><th>${t('Producto')}</th><th>${t('Categoría')}</th><th class="num">${t('Existencias')}</th><th class="num">${t('Costo')}</th><th class="num">${t('Precio (IVA incl.)')}</th><th class="num">${t('Margen')}</th><th></th></tr></thead>
@@ -101,6 +123,7 @@ const vistas = {
   venta() {
     return `
       <h1>${t('Punto de Venta')}</h1><p class="sub">${t('Haz clic en un producto para añadirlo al ticket.')}</p>
+      <div id="aviso-sync"></div>
       <div class="pos">
         <div><input class="buscador" id="buscar" placeholder="${t('Buscar producto o SKU…')}" aria-label="${t('Buscar productos')}"><div class="rejilla" id="rejilla"></div></div>
         <div class="panel" id="ticket"></div>
@@ -109,14 +132,15 @@ const vistas = {
 
   ventas() {
     const lista = datos.ventas.slice().reverse();
+    const anuladas = new Map(datos.anulaciones.map((a) => [a.id, a]));
     return `
       <div class="cabecera"><div><h1>${t('Ventas & Facturas')}</h1><p class="sub">${t('{n} facturas emitidas', { n: datos.ventas.length })}</p></div>
-        <div class="acciones"><button id="exportar-ventas" ${lista.length ? '' : 'disabled'}>${t('Exportar a Excel')}</button></div></div>
+        <div class="acciones">${botonExportar('exportar-ventas', lista.length)}</div></div>
       <div class="panel">${lista.length ? `<table>
         <thead><tr><th>${t('Factura')}</th><th>${t('Fecha')}</th><th>${t('Cliente')}</th><th>${t('Método')}</th><th class="num">${t('Artículos')}</th><th class="num">${t('Total')}</th><th></th></tr></thead>
-        <tbody>${lista.map((v) => `<tr><td class="mono">${v.numero}</td><td>${fecha(v.fecha)}</td><td>${esc(v.cliente)}</td><td>${esc(t(v.metodo))}</td>
+        <tbody>${lista.map((v) => `<tr class="${anuladas.has(v.id) ? 'anulada' : ''}"><td class="mono">${v.numero}${anuladas.has(v.id) ? ` <small class="chip agotado" title="${esc(anuladas.get(v.id).motivo)}">${t('Anulada')}</small>` : ''}</td><td>${fecha(v.fecha)}</td><td>${esc(v.cliente)}</td><td>${esc(t(v.metodo))}</td>
           <td class="num">${v.lineas.reduce((s, l) => s + l.cantidad, 0)}</td><td class="num">${dinero(v.total)}</td>
-          <td class="num"><button data-pdf="${v.id}">${t('Factura PDF')}</button></td></tr>`).join('')}</tbody></table>` : `<p class="vacio">${t('Aún no hay ventas. Registra la primera en el Punto de Venta.')}</p>`}</div>`;
+          <td class="num"><div class="acciones fin">${puedo('anular_ventas') && !anuladas.has(v.id) ? `<button data-anular="${v.id}">${t('Anular')}</button>` : ''}<button data-pdf="${v.id}">${t('Factura PDF')}</button></div></td></tr>`).join('')}</tbody></table>` : `<p class="vacio">${t('Aún no hay ventas. Registra la primera en el Punto de Venta.')}</p>`}</div>`;
   },
 
   gastos() {
@@ -125,7 +149,7 @@ const vistas = {
     const delMes = datos.gastos.filter((g) => g.fecha.startsWith(mes)).reduce((s, g) => s + g.importe, 0);
     return `
       <div class="cabecera"><div><h1>${t('Gastos Operativos')}</h1><p class="sub">${t('Este mes')}: <b class="mono">${dinero(delMes)}</b> · ${t('{n} gastos registrados', { n: datos.gastos.length })}</p></div>
-        <div class="acciones"><button id="exportar-gastos" ${lista.length ? '' : 'disabled'}>${t('Exportar a Excel')}</button><button class="primario" id="nuevo-gasto">${t('+ Nuevo gasto')}</button></div></div>
+        <div class="acciones">${botonExportar('exportar-gastos', lista.length)}<button class="primario" id="nuevo-gasto">${t('+ Nuevo gasto')}</button></div></div>
       <div class="panel">${lista.length ? `<table>
         <thead><tr><th>${t('Fecha')}</th><th>${t('Concepto')}</th><th>${t('Categoría')}</th><th>${t('Método')}</th><th class="num">${t('Importe')}</th><th></th></tr></thead>
         <tbody>${lista.map((g) => `<tr><td class="mono">${fechaDia(g.fecha)}</td><td>${esc(g.concepto)}</td><td>${esc(t(g.categoria))}</td><td>${esc(t(g.metodo))}</td>
@@ -144,7 +168,7 @@ const vistas = {
     return `
       <div class="cabecera"><div><h1>${t('Informes & Rentabilidad')}</h1><p class="sub">${rango} · ${t('importes sin IVA')}</p></div>
         <div class="acciones">${Object.entries(periodos).map(([k, v]) => `<button data-periodo="${k}" class="${k === periodo ? 'activo-periodo' : ''}">${t(v)}</button>`).join('')}
-        <button class="primario" id="exportar-informe">${t('Exportar a Excel')}</button></div></div>
+        ${puedo('exportar') ? `<button class="primario" id="exportar-informe">${t('Exportar a Excel')}</button>` : ''}</div></div>
       <div class="tarjetas">
         <div class="tarjeta"><small>${t('Beneficio neto')}</small><div class="valor ${r.beneficio < 0 ? 'agotado' : 'ok'}">${dinero(r.beneficio)}</div><small>${t('Margen neto {m}%', { m: r.margen })}</small></div>
         <div class="tarjeta"><small>${t('Ingresos (sin IVA)')}</small><div class="valor">${dinero(r.ingresos)}</div><small>${t('{n} tickets', { n: r.tickets })} · ${t('facturado')} ${dinero(r.facturado)}</small></div>
@@ -207,7 +231,6 @@ const vistas = {
             <p class="cuenta-linea"><span>${esc(cuentaEmail)} · <b>${t(esAdmin() ? 'Administrador' : 'Trabajador')}</b></span><small id="sync-detalle">${esc(textoSync())}</small></p>
             <div class="acciones"><button type="button" id="sincronizar-ya">${t('Sincronizar ahora')}</button><button type="button" class="peligro" id="cerrar-sesion">${t('Cerrar sesión')}</button></div>
           </section>` : ''}
-          ${cuentaEmail && esAdmin() ? `<section class="panel" id="equipo"><h2>${t('Equipo')}</h2><p class="vacio">${t('Cargando…')}</p></section>` : ''}
           ${esAdmin() ? `<section class="panel"><h2>${t('Productos')}</h2>
             ${casilla('imagenes', a.imagenes, 'Usar imágenes en los productos')}
             <small class="ayuda">${t('Muestra una foto en el inventario y en el punto de venta. Al desactivarlo, las fotos no se borran.')}</small>
@@ -227,6 +250,7 @@ const vistas = {
           <div class="cabecera"><div class="etiqueta-campo">${t('Vista previa')}</div><button type="button" id="restablecer-factura">${t('Restablecer diseño')}</button></div>
           <iframe id="vista-factura" title="${t('Vista previa de la factura')}" sandbox></iframe>
         </section>` : ''}
+        ${cuentaEmail && esAdmin() ? `<section class="panel ancho-completo" id="equipo"><h2>${t('Equipo')}</h2><p class="vacio">${t('Cargando…')}</p></section>` : ''}
       </form>`;
   },
 };
@@ -244,13 +268,13 @@ const alMontar = {
         return `<tr>${conImagenes() ? `<td>${miniatura(p, 'mini')}</td>` : ''}<td class="mono">${esc(p.sku)}</td><td>${esc(p.nombre)}</td><td>${esc(p.categoria)}</td>
           <td class="num"><span class="chip ${est}">${t('{n} uds', { n: p.stock })} · ${t(ESTADOS[est])}</span></td>
           <td class="num">${dinero(p.costo)}</td><td class="num">${dinero(p.precio)}</td><td class="num">${margen}%</td>
-          <td class="num">${esAdmin() ? `<button data-editar="${p.id}">${t('Editar')}</button>` : ''}</td></tr>`;
+          <td class="num">${puedoTocarProductos() ? `<button data-editar="${p.id}">${t('Editar')}</button>` : ''}</td></tr>`;
       }).join('') : `<tr><td colspan="9" class="vacio">${datos.productos.length ? t('Sin resultados.') : t('Aún no hay productos. Crea el primero con “+ Nuevo producto”.')}</td></tr>`;
     };
     $('#buscar').oninput = pintar;
-    if (esAdmin()) $('#nuevo-producto').onclick = () => formularioProducto();
+    if (puedo('crear_productos')) $('#nuevo-producto').onclick = () => formularioProducto();
     $('#filas').onclick = (e) => e.target.dataset.editar && formularioProducto(datos.productos.find((p) => p.id === e.target.dataset.editar));
-    $('#exportar-productos').onclick = () => exportar(t('Productos'), ['SKU', t('Producto'), t('Categoría'), 'Stock', t('Mínimo'), t('Costo'), t('Precio')],
+    if (puedo('exportar')) $('#exportar-productos').onclick = () => exportar(t('Productos'), ['SKU', t('Producto'), t('Categoría'), 'Stock', t('Mínimo'), t('Costo'), t('Precio')],
       datos.productos.map((p) => [p.sku, p.nombre, p.categoria, p.stock, p.minimo, p.costo / 100, p.precio / 100]));
     pintar();
   },
@@ -277,7 +301,7 @@ const alMontar = {
         <div class="totales"><div><span>${t('Base imponible')}</span><span>${dinero(base)}</span></div><div><span>${t('IVA')} (${datos.ajustes.iva}%)</span><span>${dinero(cuota)}</span></div></div>
         <div class="total-cobrar"><small>${t('TOTAL A COBRAR')}</small><b>${dinero(total)}</b></div>
         <div class="metodos">${['Efectivo', 'Tarjeta', 'Transferencia'].map((m) => `<button data-metodo="${m}" class="${m === metodoPago ? 'activo' : ''}">${t(m)}</button>`).join('')}</div>
-        <button class="primario" id="cobrar" style="width:100%" ${ticket.length ? '' : 'disabled'}>${t('Cobrar y generar factura')}</button>
+        <button class="primario" id="cobrar" style="width:100%" ${ticket.length && !bloqueadoSinConexion() ? '' : 'disabled'}>${t('Cobrar y generar factura')}</button>
         <button id="vaciar" style="width:100%;margin-top:6px" ${ticket.length ? '' : 'disabled'}>${t('Vaciar ticket')}</button>`;
     };
     $('#buscar').oninput = pintarRejilla;
@@ -305,7 +329,8 @@ const alMontar = {
       else if (e.target.id === 'vaciar') ticket = [];
       else if (e.target.id === 'cobrar') {
         try {
-          const r = registrarVenta(datos, ticket, { metodo: metodoPago, cliente: pintarTicket.cliente, serie: miSerie });
+          if (bloqueadoSinConexion()) return avisar(t('No tienes permiso para vender sin conexión.'), true);
+          const r = registrarVenta(datos, ticket, { metodo: metodoPago, cliente: pintarTicket.cliente, serie: miSerie, vendedor: cuentaEmail || '', sinConexion: sinSincronizar() });
           if (!(await guardar(r.datos))) return;
           ticket = [];
           pintarTicket.cliente = '';
@@ -320,21 +345,31 @@ const alMontar = {
     };
     pintarRejilla();
     pintarTicket();
+    pintarAvisoSync();
+  },
+
+  resumen() {
+    $('#vista').onclick = (e) => {
+      const d = e.target.dataset;
+      if (d.recontar) recontar(datos.productos.find((p) => p.id === d.recontar));
+      if (d.anular) pedirAnulacion(datos.ventas.find((v) => v.id === d.anular));
+    };
   },
 
   ventas() {
     $('#vista').onclick = (e) => {
+      if (e.target.dataset.anular) return pedirAnulacion(datos.ventas.find((x) => x.id === e.target.dataset.anular));
       const v = datos.ventas.find((x) => x.id === e.target.dataset.pdf);
       if (v) window.api.facturaPdf({ nombre: v.numero, html: factura(v, datos.ajustes) }).then((r) => r && avisar(t('Factura guardada')));
     };
-    $('#exportar-ventas').onclick = () => exportar(t('Ventas'), [t('Factura'), t('Fecha'), t('Cliente'), t('Método'), t('Base'), t('IVA'), t('Total')],
+    if (puedo('exportar')) $('#exportar-ventas').onclick = () => exportar(t('Ventas'), [t('Factura'), t('Fecha'), t('Cliente'), t('Método'), t('Base'), t('IVA'), t('Total')],
       datos.ventas.map((v) => [v.numero, fecha(v.fecha), v.cliente, t(v.metodo), v.base / 100, v.cuota / 100, v.total / 100]));
   },
 
   gastos() {
     $('#nuevo-gasto').onclick = () => formularioGasto();
     $('#vista').onclick = (e) => e.target.dataset.editar && formularioGasto(datos.gastos.find((g) => g.id === e.target.dataset.editar));
-    $('#exportar-gastos').onclick = () => exportar(t('Gastos'), [t('Fecha'), t('Concepto'), t('Categoría'), t('Método'), t('Importe')],
+    if (puedo('exportar')) $('#exportar-gastos').onclick = () => exportar(t('Gastos'), [t('Fecha'), t('Concepto'), t('Categoría'), t('Método'), t('Importe')],
       datos.gastos.map((g) => [g.fecha, g.concepto, t(g.categoria), t(g.metodo), g.importe / 100]));
   },
 
@@ -344,7 +379,7 @@ const alMontar = {
       periodo = e.target.dataset.periodo;
       ir();
     };
-    $('#exportar-informe').onclick = () => {
+    if (puedo('exportar')) $('#exportar-informe').onclick = () => {
       const [desde, hasta] = rangoPeriodo();
       const r = informe(datos, desde, hasta);
       exportar(t('Informe'), [t('Concepto'), t('Importe')], [
@@ -499,7 +534,20 @@ function formularioProducto(p) {
     </form>`;
   const form = $('#form-producto');
   dlg.showModal();
-  form.elements.nombre.focus();
+  // Al editar, cada grupo de campos depende de su permiso (crear un producto permite rellenarlo todo).
+  const editar = !p || puedo('editar_productos');
+  const precios = !p || puedo('editar_precios');
+  const stock = !p || puedo('ajustar_stock');
+  for (const [campo, permitido] of [['nombre', editar], ['sku', editar], ['categoria', editar], ['minimo', editar], ['costo', precios], ['precio', precios], ['stock', stock]]) {
+    form.elements[campo].readOnly = !permitido;
+    if (!permitido) form.elements[campo].title = t('No tienes permiso para cambiar este campo.');
+  }
+  if (!editar) {
+    $('#generar-sku').hidden = true;
+    $('#foto-zona').classList.add('bloqueada');
+    if (p) $('#borrar').hidden = true;
+  }
+  form.querySelector('input:not([readonly])')?.focus();
   dlg.onclose = () => (dlg.className = '');
   $('#cancelar').onclick = $('#cancelar-pie').onclick = () => dlg.close();
 
@@ -521,13 +569,14 @@ function formularioProducto(p) {
   };
   const zona = $('#foto-zona');
   zona.onclick = (e) => {
+    if (!editar) return;
     if (e.target.id === 'quitar-foto') { imagen = ''; return pintarFoto(); }
     $('#archivo-foto').click();
   };
   zona.onkeydown = (e) => (e.key === 'Enter' || e.key === ' ') && e.target === zona && (e.preventDefault(), $('#archivo-foto').click());
   zona.ondragover = (e) => { e.preventDefault(); zona.classList.add('arrastrando'); };
   zona.ondragleave = () => zona.classList.remove('arrastrando');
-  zona.ondrop = (e) => { e.preventDefault(); zona.classList.remove('arrastrando'); cargarFoto(e.dataTransfer.files[0]); };
+  zona.ondrop = (e) => { e.preventDefault(); if (!editar) return; zona.classList.remove('arrastrando'); cargarFoto(e.dataTransfer.files[0]); };
   $('#archivo-foto').onchange = (e) => cargarFoto(e.target.files[0]);
   pintarFoto();
 
@@ -569,10 +618,11 @@ function formularioProducto(p) {
       costo: aCentimos(f.costo), precio: aCentimos(f.precio), stock: Number(f.stock), minimo: Number(f.minimo),
     };
     if (imagen) nuevo.imagen = imagen;
-    const error = validarProducto(nuevo, datos.productos);
-    if (error) return ($('#error-producto').textContent = error);
-    // Cambiar el stock a mano es un recuento: pasa a ser la base desde ahora. Si no se toca, se conserva la base.
+    // Cambiar el stock a mano es un recuento: pasa a ser la base desde ahora. Si no se toca, se conserva la base
+    // (y no se valida: con un descuadre puede ser negativo).
     const recuento = !p || nuevo.stock !== p.stock;
+    const error = validarProducto(recuento ? nuevo : { ...nuevo, stock: 0 }, datos.productos);
+    if (error) return ($('#error-producto').textContent = error);
     nuevo.stockBase = recuento ? nuevo.stock : p.stockBase;
     nuevo.stockFecha = recuento ? new Date().toISOString() : p.stockFecha;
     const productos = p ? datos.productos.map((x) => (x.id === p.id ? nuevo : x)) : [...datos.productos, nuevo];
@@ -642,17 +692,64 @@ function aplicarAjustes() {
   $('#logo').classList.toggle('con-imagen', !!a.logo);
   pintarSync();
   const menu = [['resumen', 'Resumen Diario'], ['inventario', 'Inventario & Catálogo'], ['venta', 'Punto de Venta'], ['ventas', 'Ventas & Facturas'], ['gastos', 'Gastos Operativos'], ['informes', 'Informes & Rentabilidad'], ['ajustes', 'Ajustes']];
-  $('nav').innerHTML = menu.filter(([v]) => esAdmin() || VISTAS_TRABAJADOR.includes(v)).map(([v, texto]) => `<a href="#${v}" data-vista="${v}">${esc(t(texto))}${v === 'inventario' ? ' <span class="chip" id="contador-productos">0</span>' : ''}</a>`).join('');
+  $('nav').innerHTML = menu.filter(([v]) => vistaPermitida(v)).map(([v, texto]) => `<a href="#${v}" data-vista="${v}">${esc(t(texto))}${v === 'inventario' ? ' <span class="chip" id="contador-productos">0</span>' : ''}</a>`).join('');
 }
 
 function ir() {
   const pedida = location.hash.slice(1);
-  const vista = vistas[pedida] && (esAdmin() || VISTAS_TRABAJADOR.includes(pedida)) ? pedida : 'resumen';
+  const vista = vistas[pedida] && vistaPermitida(pedida) ? pedida : 'resumen';
   $('#vista').onclick = null;
   $('#vista').innerHTML = vistas[vista]();
   alMontar[vista]?.();
   document.querySelectorAll('nav a').forEach((a) => a.classList.toggle('activo', a.dataset.vista === vista));
   actualizarContador();
+}
+
+// ---------- Descuadres, anulaciones y avisos de sincronización ----------
+const bloqueadoSinConexion = () => sinSincronizar() && ultimoSync.estado !== 'ok' && !puedo('vender_sin_conexion');
+
+function pintarAvisoSync() {
+  const caja = $('#aviso-sync');
+  if (!caja) return;
+  if (!sinSincronizar()) return (caja.innerHTML = '');
+  const desde = ultimoSync.hora ? new Date(ultimoSync.hora).toLocaleTimeString(locale(), { timeStyle: 'short' }) : '—';
+  caja.innerHTML = `<p class="aviso-sync ${bloqueadoSinConexion() ? 'agotado' : 'bajo'}">${bloqueadoSinConexion()
+    ? t('Sin conexión: no tienes permiso para vender hasta que vuelva la conexión.')
+    : t('Sin sincronizar desde las {h}: el stock puede no estar al día si se vende en otros equipos.', { h: desde })}</p>`;
+}
+
+// Pequeño formulario en el diálogo (Electron no tiene prompt()).
+function preguntar({ titulo, texto, campo, tipo = 'text', valor = '', boton }) {
+  return new Promise((ok) => {
+    const dlg = $('#dialogo');
+    dlg.className = '';
+    dlg.innerHTML = `<form method="dialog" id="form-pregunta"><h2>${titulo}</h2><p class="sub">${texto}</p>
+      <label>${campo}<input name="valor" type="${tipo}" ${tipo === 'number' ? 'min="0" step="1"' : ''} required value="${esc(valor)}"></label>
+      <div class="acciones" style="justify-content:flex-end"><button type="button" id="pregunta-cancelar">${t('Cancelar')}</button><button class="primario">${boton}</button></div></form>`;
+    dlg.showModal();
+    dlg.querySelector('input').select();
+    $('#pregunta-cancelar').onclick = () => { dlg.close(); ok(null); };
+    $('#form-pregunta').onsubmit = (e) => { e.preventDefault(); dlg.close(); ok(e.target.elements.valor.value); };
+  });
+}
+
+async function recontar(p) {
+  const v = await preguntar({ titulo: t('Recontar stock'), texto: t('Cuenta las unidades de "{n}" que hay físicamente. Ese número pasa a ser el stock desde ahora.', { n: p.nombre }), campo: t('Unidades contadas'), tipo: 'number', valor: Math.max(0, p.stock), boton: t('Guardar recuento') });
+  if (v === null) return;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0) return avisar(t('El stock debe ser un número entero, 0 o mayor.'), true);
+  const productos = datos.productos.map((x) => (x.id === p.id ? { ...x, stockBase: n, stockFecha: new Date().toISOString() } : x));
+  if (await guardar({ ...datos, productos })) { avisar(t('Stock actualizado')); ir(); }
+}
+
+async function pedirAnulacion(v) {
+  const motivo = await preguntar({ titulo: t('Anular venta {n}', { n: v.numero }), texto: t('La venta no se borra: queda marcada como anulada, devuelve el stock y deja de contar en los informes.'), campo: t('Motivo'), valor: t('Sin stock al sincronizar'), boton: t('Anular venta') });
+  if (motivo === null) return;
+  try {
+    if (await guardar(anularVenta(datos, v, { motivo, por: cuentaEmail || '' }))) { avisar(t('Venta anulada')); ir(); }
+  } catch (e) {
+    avisar(e.message, true);
+  }
 }
 
 // ---------- Equipo (solo admin; necesita conexión) ----------
@@ -667,11 +764,12 @@ async function pintarEquipo() {
   const roles = (actual) => ['admin', 'trabajador'].map((v) => `<option value="${v}" ${v === actual ? 'selected' : ''}>${t(v === 'admin' ? 'Administrador' : 'Trabajador')}</option>`).join('');
   caja.innerHTML = `
     <h2>${t('Equipo')}</h2>
-    <small class="ayuda">${t('Los trabajadores venden y ven el inventario y las ventas. No ven gastos ni informes ni cambian productos o ajustes.')}</small>
+    <small class="ayuda">${t('Un trabajador vende y ve inventario y ventas. Con "Permisos" le das más acciones; el equipo y los ajustes de la empresa son solo de los administradores.')}</small>
     <table class="tabla-equipo"><tbody>
       ${r.miembros.map((m) => `<tr><td>${esc(m.email)}${m.user_id === r.yo ? ` <small class="chip">${t('Tú')}</small>` : ''}${m.serie ? ` <small class="chip">${t('Serie')} ${esc(m.serie)}</small>` : ''}</td>
         <td><select data-rol="${m.user_id}" aria-label="${t('Rol de {n}', { n: m.email })}">${roles(m.rol)}</select></td>
-        <td class="num"><button type="button" class="peligro" data-quitar="${m.user_id}" data-email="${esc(m.email)}">${t('Quitar')}</button></td></tr>`).join('')}
+        <td class="num"><div class="acciones fin">${m.rol !== 'admin' ? `<button type="button" data-ver-permisos="${m.user_id}" aria-expanded="false">${t('Permisos')}</button>` : ''}<button type="button" class="peligro" data-quitar="${m.user_id}" data-email="${esc(m.email)}">${t('Quitar')}</button></div></td></tr>
+        ${m.rol !== 'admin' ? `<tr class="fila-permisos" id="permisos-${m.user_id}" hidden><td colspan="3"><div class="permisos">${PERMISOS.map(([k, texto]) => `<label class="casilla"><input type="checkbox" data-permiso="${k}" data-usuario="${m.user_id}" ${(m.permisos || []).includes(k) ? 'checked' : ''}> ${t(texto)}</label>`).join('')}</div></td></tr>` : `<tr><td colspan="3"><small class="ayuda">${t('Los administradores tienen todos los permisos.')}</small></td></tr>`}`).join('')}
       ${r.invitaciones.map((i) => `<tr class="pendiente"><td>${esc(i.email)} <small class="chip bajo">${t('Invitación pendiente')}</small></td><td>${t(i.rol === 'admin' ? 'Administrador' : 'Trabajador')}</td>
         <td class="num"><button type="button" data-cancelar="${esc(i.email)}">${t('Cancelar')}</button></td></tr>`).join('')}
     </tbody></table>
@@ -682,17 +780,30 @@ async function pintarEquipo() {
     </div>
     <small class="ayuda">${t('La persona debe crear su cuenta con ese mismo correo y confirmarlo. Al entrar se une al equipo.')}</small>
     <p class="error" id="error-equipo" role="alert"></p>`;
-  const resultado = async (promesa, ok) => {
+  const resultado = async (promesa, ok, abierto) => {
     const res = await promesa;
     if (res.error) return ($('#error-equipo').textContent = t(res.error));
     avisar(ok);
-    pintarEquipo();
+    await pintarEquipo();
+    if (abierto) $(`#permisos-${abierto}`).hidden = false; // mantener abierta la lista que se estaba editando
   };
-  caja.onchange = (e) => e.target.dataset.rol && resultado(window.api.equipo.cambiar({ userId: e.target.dataset.rol, rol: e.target.value }), t('Rol actualizado'));
+  caja.onchange = (e) => {
+    const d = e.target.dataset;
+    if (d.rol) resultado(window.api.equipo.cambiar({ userId: d.rol, rol: e.target.value }), t('Rol actualizado'));
+    if (d.permiso) {
+      const permisos = [...caja.querySelectorAll(`[data-usuario="${d.usuario}"]:checked`)].map((c) => c.dataset.permiso);
+      resultado(window.api.equipo.permisos({ userId: d.usuario, permisos }), t('Permisos actualizados'), d.usuario);
+    }
+  };
   caja.onclick = (e) => {
     const d = e.target.dataset;
     if (d.quitar && confirm(t('¿Quitar a {n} del equipo? Dejará de ver los datos de la empresa.', { n: d.email }))) resultado(window.api.equipo.cambiar({ userId: d.quitar, rol: null }), t('Persona quitada'));
     if (d.cancelar) resultado(window.api.equipo.cancelar(d.cancelar), t('Invitación cancelada'));
+    if (d.verPermisos) {
+      const fila = $(`#permisos-${d.verPermisos}`);
+      fila.hidden = !fila.hidden;
+      e.target.setAttribute('aria-expanded', String(!fila.hidden));
+    }
     if (e.target.id === 'invitar') {
       const email = $('#invitar-email').value.trim();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return ($('#error-equipo').textContent = t('Correo no válido.'));
@@ -706,6 +817,7 @@ function usarCuenta(c) {
   cuentaEmail = c.email;
   miRol = c.rol || 'admin';
   miSerie = c.serie || '';
+  misPermisos = c.permisos || [];
 }
 
 function textoSync() {
@@ -726,6 +838,9 @@ function pintarSync() {
   el.title = ultimoSync.mensaje || '';
   const detalle = $('#sync-detalle');
   if (detalle) detalle.textContent = textoSync();
+  pintarAvisoSync();
+  const cobrar = $('#cobrar');
+  if (cobrar && ticket.length) cobrar.disabled = bloqueadoSinConexion();
 }
 
 function mostrarAcceso(aviso = '') {
@@ -810,7 +925,7 @@ function guardarPreferencias(p) {
   aplicarAjustes();
   window.addEventListener('hashchange', ir);
   window.api.alCambiarSync((s) => {
-    ultimoSync = s;
+    ultimoSync = { ...s, hora: s.hora || ultimoSync.hora }; // se conserva la hora de la última sincronización buena
     if (datos) pintarSync();
   });
   // Cambios que llegan de otro equipo: se refresca la pantalla, salvo con un formulario abierto (se hace al cerrarlo).

@@ -9,7 +9,9 @@ test('todo texto traducible de la app tiene traducción al inglés', () => {
   const codigo = ['app.js', 'factura.js', 'logica.js'].map((f) => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
   const literales = [...codigo.matchAll(/\btr?\('((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]);
   const dinamicos = [...CATEGORIAS_GASTO, 'Óptimo', 'Stock bajo', 'Agotado', 'Mes anterior', 'Este año', 'Todo', 'Efectivo', 'Tarjeta', 'Transferencia', 'Domiciliación',
-    'Oscuro', 'Claro', 'Clásica', 'Moderna', 'Minimalista', 'Izquierda', 'Centro', 'Derecha', 'Usar imágenes en los productos', 'Mostrar logo', 'Mostrar SKU', 'Mostrar método de pago'];
+    'Oscuro', 'Claro', 'Clásica', 'Moderna', 'Minimalista', 'Izquierda', 'Centro', 'Derecha', 'Usar imágenes en los productos', 'Mostrar logo', 'Mostrar SKU', 'Mostrar método de pago',
+    'Crear productos', 'Editar productos (nombre, SKU, categoría, foto)', 'Cambiar precios y costos', 'Ajustar stock (recuentos)', 'Anular ventas',
+    'Ver y registrar gastos', 'Ver informes', 'Exportar a Excel', 'Vender sin conexión'];
   const faltan = [...new Set([...literales, ...dinamicos])].filter((k) => !(k in TRADUCCIONES.en));
   assert.deepStrictEqual(faltan, []);
 });

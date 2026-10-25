@@ -95,8 +95,9 @@ function programarSync(ms) {
   temporizador = setTimeout(sincronizar, ms);
 }
 
-const miembro = () => estadoSync.miembro || { empresa: usuario?.id, rol: 'admin', serie: '' };
-const esTrabajador = () => miembro().rol === 'trabajador';
+const miembro = () => estadoSync.miembro || { empresa: usuario?.id, rol: 'admin', serie: '', permisos: [] };
+const esAdmin = () => miembro().rol === 'admin';
+const puede = (permiso) => esAdmin() || (miembro().permisos || []).includes(permiso);
 
 // Empresa, rol y serie de esta persona. Si cambian (la invitaron, la quitaron o le cambiaron el rol) se ajustan los datos locales.
 async function actualizarMiembro() {
@@ -104,7 +105,7 @@ async function actualizarMiembro() {
   // Sin la migración 002 aplicada, cada cuenta sigue siendo su propia empresa.
   if (error?.code === 'PGRST202') return;
   if (error) throw error;
-  const nuevo = { empresa: data[0].empresa_id, rol: data[0].rol, serie: data[0].serie };
+  const nuevo = { empresa: data[0].empresa_id, rol: data[0].rol, serie: data[0].serie, permisos: data[0].permisos || [] };
   const antes = estadoSync.miembro;
   if (antes && antes.empresa !== nuevo.empresa) {
     // Otra empresa: lo local de la anterior no se mezcla ni se sube aquí.
@@ -112,10 +113,10 @@ async function actualizarMiembro() {
     estadoSync = { ...S.estadoInicial(), usuario: usuario.id };
     escribirJson('datos.json', actual);
     avisarPantalla('datos:remotos', entregar());
-  } else if (antes && antes.rol !== nuevo.rol) {
-    // Cambió el rol: se vuelve a bajar todo con los permisos nuevos (un trabajador deja de tener los gastos).
-    estadoSync = { ...estadoSync, cursor: null, versiones: {} };
-    if (nuevo.rol === 'trabajador') {
+  } else if (antes && (antes.rol !== nuevo.rol || JSON.stringify(antes.permisos) !== JSON.stringify(nuevo.permisos))) {
+    // Cambiaron rol o permisos: se vuelve a bajar todo con los permisos nuevos; sin permiso de gastos, se borran de este equipo.
+    estadoSync = { ...estadoSync, cursor: null, versiones: {}, miembro: nuevo };
+    if (!puede('gastos')) {
       actual = { ...actual, gastos: [] };
       escribirJson('datos.json', actual);
       avisarPantalla('datos:remotos', entregar());
@@ -125,22 +126,21 @@ async function actualizarMiembro() {
   if (JSON.stringify(antes) !== JSON.stringify(nuevo)) avisarPantalla('cuenta:cambio', cuenta.estado());
 }
 
-// Las ventas solo se insertan (nunca se reescriben); lo demás se actualiza si es más nuevo.
+// Ventas y anulaciones solo se insertan (nunca se reescriben; primero las ventas, que las anulaciones las necesitan).
+// Lo demás se actualiza si es más nuevo.
 async function subirLote(lote) {
   const fila = (p) => ({ owner_id: miembro().empresa, tipo: p.tipo, id: p.id, datos: p.datos, borrado: p.borrado, actualizado: p.actualizado });
-  const ventas = lote.filter((p) => p.tipo === 'venta').map(fila);
-  const otros = lote.filter((p) => p.tipo !== 'venta').map(fila);
-  const r1 = ventas.length ? await cliente.from('registros').upsert(ventas, { onConflict: 'owner_id,tipo,id', ignoreDuplicates: true }) : {};
-  const r2 = otros.length ? await cliente.from('registros').upsert(otros, { onConflict: 'owner_id,tipo,id' }) : {};
-  return r1.error || r2.error;
+  for (const tipo of ['venta', 'anulacion']) {
+    const filas = lote.filter((p) => p.tipo === tipo).map(fila);
+    const r = filas.length ? await cliente.from('registros').upsert(filas, { onConflict: 'owner_id,tipo,id', ignoreDuplicates: true }) : {};
+    if (r.error) return r.error;
+  }
+  const otros = lote.filter((p) => !['venta', 'anulacion'].includes(p.tipo)).map(fila);
+  const r = otros.length ? await cliente.from('registros').upsert(otros, { onConflict: 'owner_id,tipo,id' }) : {};
+  return r.error;
 }
 
 async function subirPendientes() {
-  // Un trabajador solo puede subir ventas: otros cambios se descartan y se recupera la versión del servidor.
-  if (esTrabajador() && Object.values(estadoSync.pendientes).some((p) => p.tipo !== 'venta')) {
-    const pendientes = Object.fromEntries(Object.entries(estadoSync.pendientes).filter(([, p]) => p.tipo === 'venta'));
-    estadoSync = { ...estadoSync, pendientes, cursor: null, versiones: {} };
-  }
   const subir = Object.values(estadoSync.pendientes);
   for (let i = 0; i < subir.length; i += 200) {
     const lote = subir.slice(i, i + 200);
@@ -149,16 +149,16 @@ async function subirPendientes() {
       estadoSync = S.quitarSubidos(estadoSync, lote);
       continue;
     }
-    if (error.code !== '42501') throw error;
+    if (!['42501', '22023'].includes(error.code)) throw error;
     // Permiso denegado: se prueba fila a fila. Lo rechazado se descarta (salvo ventas, que nunca se pierden).
     for (const p of lote) {
       const e = await subirLote([p]);
       if (!e) estadoSync = S.quitarSubidos(estadoSync, [p]);
-      else if (e.code === '42501' && p.tipo !== 'venta') {
+      else if (['42501', '22023'].includes(e.code) && p.tipo !== 'venta') {
         const pendientes = { ...estadoSync.pendientes };
         delete pendientes[`${p.tipo}:${p.id}`];
         estadoSync = { ...estadoSync, pendientes, cursor: null, versiones: {} };
-      } else if (e.code !== '42501') throw e;
+      } else if (!['42501', '22023'].includes(e.code)) throw e;
     }
   }
 }
@@ -190,7 +190,7 @@ async function sincronizar() {
     // Primera vez en esta cuenta: lo que solo existe en este equipo se sube (lo de la nube ya se bajó y manda).
     if (!estadoSync.vinculado) {
       const locales = [...S.registrosDe(actual).entries()]
-        .filter(([k, r]) => !estadoSync.versiones[k] && (!esTrabajador() || r.tipo === 'venta')).map(([, r]) => r);
+        .filter(([k, r]) => !estadoSync.versiones[k] && (esAdmin() || r.tipo === 'venta')).map(([, r]) => r);
       estadoSync = { ...S.anotarPendientes(estadoSync, locales), vinculado: true };
       if (locales.length) programarSync(0);
     }
@@ -233,7 +233,7 @@ const MENSAJES_ACCESO = [
 const mensajeAcceso = (e) => (MENSAJES_ACCESO.find(([re]) => re.test(e.message)) || [null, e.message])[1];
 
 const cuenta = {
-  estado: () => ({ configurado: !!config, email: usuario?.email ?? null, rol: usuario ? miembro().rol : 'admin', serie: usuario ? miembro().serie : '' }),
+  estado: () => ({ configurado: !!config, email: usuario?.email ?? null, rol: usuario ? miembro().rol : 'admin', serie: usuario ? miembro().serie : '', permisos: usuario ? miembro().permisos || [] : [] }),
   async entrar(_e, { email, clave }) {
     const { data, error } = await cliente.auth.signInWithPassword({ email, password: clave });
     if (error) return { error: mensajeAcceso(error) };
@@ -263,11 +263,12 @@ const respuesta = async (promesa) => {
 };
 const equipo = {
   async listar() {
-    const m = await respuesta(cliente.from('miembros').select('user_id,email,rol,serie').order('email'));
+    const m = await respuesta(cliente.from('miembros').select('user_id,email,rol,serie,permisos').order('email'));
     if (m.error) return m;
-    const inv = esTrabajador() ? { data: [] } : await respuesta(cliente.from('invitaciones').select('email,rol,expira').order('email'));
+    const inv = !esAdmin() ? { data: [] } : await respuesta(cliente.from('invitaciones').select('email,rol,expira').order('email'));
     return inv.error ? inv : { miembros: m.data, invitaciones: inv.data, yo: usuario.id };
   },
+  permisos: (_e, { userId, permisos }) => respuesta(cliente.rpc('cambiar_permisos', { p_user: userId, p_permisos: permisos })),
   invitar: (_e, { email, rol }) => respuesta(cliente.rpc('invitar', { p_email: email, p_rol: rol })),
   cancelar: (_e, email) => respuesta(cliente.rpc('cancelar_invitacion', { p_email: email })),
   async cambiar(_e, { userId, rol }) {
@@ -350,6 +351,7 @@ ipcMain.handle('equipo:listar', equipo.listar);
 ipcMain.handle('equipo:invitar', equipo.invitar);
 ipcMain.handle('equipo:cancelar', equipo.cancelar);
 ipcMain.handle('equipo:cambiar', equipo.cambiar);
+ipcMain.handle('equipo:permisos', equipo.permisos);
 ipcMain.handle('excel:exportar', (e, args) => exportarExcel(BrowserWindow.fromWebContents(e.sender), args));
 ipcMain.handle('factura:pdf', (e, args) => facturaPdf(BrowserWindow.fromWebContents(e.sender), args));
 

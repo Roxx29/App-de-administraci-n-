@@ -3,6 +3,9 @@ let datos;
 let ticket = []; // líneas del ticket en curso
 let metodoPago = 'Efectivo';
 let periodo = 'mes'; // periodo elegido en Informes
+let rev = 0; // versión de los datos que tiene esta pantalla (ver main.js)
+let cuentaEmail = null;
+let ultimoSync = { estado: 'local' };
 
 const $ = (s) => document.querySelector(s);
 const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -26,8 +29,9 @@ function avisar(texto, mal = false) {
 
 async function guardar(nuevos) {
   try {
-    await window.api.guardarDatos(nuevos);
-    datos = nuevos;
+    const r = await window.api.guardarDatos({ rev, datos: nuevos });
+    rev = r.rev;
+    datos = normalizar(r.datos);
     return true;
   } catch (e) {
     avisar(t('No se pudo guardar: {e}', { e: e.message }), true);
@@ -195,6 +199,10 @@ const vistas = {
               <label>${t('Idioma')}<select name="idioma"><option value="es" ${a.idioma === 'es' ? 'selected' : ''}>Español</option><option value="en" ${a.idioma === 'en' ? 'selected' : ''}>English</option></select></label>
             </div>
           </section>
+          ${cuentaEmail ? `<section class="panel"><h2>${t('Cuenta')}</h2>
+            <p class="cuenta-linea"><span>${esc(cuentaEmail)}</span><small id="sync-detalle">${esc(textoSync())}</small></p>
+            <div class="acciones"><button type="button" id="sincronizar-ya">${t('Sincronizar ahora')}</button><button type="button" class="peligro" id="cerrar-sesion">${t('Cerrar sesión')}</button></div>
+          </section>` : ''}
           <section class="panel"><h2>${t('Productos')}</h2>
             ${casilla('imagenes', a.imagenes, 'Usar imágenes en los productos')}
             <small class="ayuda">${t('Muestra una foto en el inventario y en el punto de venta. Al desactivarlo, las fotos no se borran.')}</small>
@@ -362,6 +370,16 @@ const alMontar = {
     };
     const previa = () => ($('#vista-factura').srcdoc = factura(ventaEjemplo(), leerForm()));
     form.oninput = previa;
+    if (cuentaEmail) {
+      $('#sincronizar-ya').onclick = () => window.api.sincronizarAhora();
+      $('#cerrar-sesion').onclick = async () => {
+        const n = await window.api.cuenta.pendientes();
+        if (!confirm(n ? t('Hay {n} cambios sin subir a la nube. Si cierras sesión se subirán cuando vuelvas a entrar. ¿Cerrar sesión?', { n }) : t('¿Cerrar sesión?'))) return;
+        await window.api.cuenta.salir();
+        cuentaEmail = null;
+        mostrarAcceso();
+      };
+    }
     $('#elegir-logo').onclick = () => $('#archivo-logo').click();
     $('#archivo-logo').onchange = async (e) => {
       try {
@@ -608,7 +626,7 @@ function aplicarAjustes() {
   $('#nombre-negocio').textContent = a.negocio.toUpperCase();
   $('#logo').innerHTML = a.logo ? `<img src="${a.logo}" alt="">` : '▣';
   $('#logo').classList.toggle('con-imagen', !!a.logo);
-  $('#estado-local').textContent = '● ' + t('Guardado local');
+  pintarSync();
   const menu = [['resumen', 'Resumen Diario'], ['inventario', 'Inventario & Catálogo'], ['venta', 'Punto de Venta'], ['ventas', 'Ventas & Facturas'], ['gastos', 'Gastos Operativos'], ['informes', 'Informes & Rentabilidad'], ['ajustes', 'Ajustes']];
   $('nav').innerHTML = menu.map(([v, texto]) => `<a href="#${v}" data-vista="${v}">${esc(t(texto))}${v === 'inventario' ? ' <span class="chip" id="contador-productos">0</span>' : ''}</a>`).join('');
 }
@@ -622,10 +640,102 @@ function ir() {
   actualizarContador();
 }
 
+// ---------- Cuenta y sincronización ----------
+function textoSync() {
+  const s = ultimoSync;
+  const pend = s.pendientes ? ' · ' + t('{n} sin subir', { n: s.pendientes }) : '';
+  if (!cuentaEmail) return t('Guardado local');
+  if (s.estado === 'sincronizando') return t('Sincronizando…');
+  if (s.estado === 'ok') return t('Sincronizado {h}', { h: new Date(s.hora).toLocaleTimeString(locale(), { timeStyle: 'short' }) }) + pend;
+  if (s.estado === 'sin-conexion') return t('Sin conexión') + pend;
+  if (s.estado === 'error') return t('Error al sincronizar') + pend;
+  return t('Conectado');
+}
+
+function pintarSync() {
+  const el = $('#estado-local');
+  el.textContent = '● ' + textoSync();
+  el.className = 'estado-local ' + ({ 'sin-conexion': 'bajo', error: 'agotado' }[ultimoSync.estado] || '');
+  el.title = ultimoSync.mensaje || '';
+  const detalle = $('#sync-detalle');
+  if (detalle) detalle.textContent = textoSync();
+}
+
+function mostrarAcceso(aviso = '') {
+  document.body.classList.add('sin-sesion');
+  const caja = $('#acceso');
+  caja.hidden = false;
+  caja.innerHTML = `
+    <form class="acceso-caja" id="form-acceso">
+      <div class="marca"><span class="logo">▣</span><div><b>ApexLedger</b><small>${t('Administración para tu negocio')}</small></div></div>
+      <h1 id="acceso-titulo">${t('Iniciar sesión')}</h1>
+      <p class="sub">${t('Tus datos se guardan en este equipo y se sincronizan con la nube.')}</p>
+      <label>${t('Correo')}<input name="email" type="email" required autocomplete="email"></label>
+      <label>${t('Contraseña')}<input name="clave" type="password" required minlength="6" autocomplete="current-password"></label>
+      <p class="error" id="error-acceso" role="alert">${esc(aviso)}</p>
+      <button class="primario" id="boton-acceso">${t('Entrar')}</button>
+      <p class="cambiar-modo"><span id="pregunta-modo">${t('¿No tienes cuenta?')}</span> <button type="button" class="enlace" id="cambiar-modo">${t('Crear cuenta')}</button></p>
+    </form>`;
+  let registrando = false;
+  const form = $('#form-acceso');
+  form.elements.email.focus();
+  $('#cambiar-modo').onclick = () => {
+    registrando = !registrando;
+    $('#acceso-titulo').textContent = t(registrando ? 'Crear cuenta' : 'Iniciar sesión');
+    $('#boton-acceso').textContent = t(registrando ? 'Crear cuenta' : 'Entrar');
+    $('#pregunta-modo').textContent = t(registrando ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?');
+    $('#cambiar-modo').textContent = t(registrando ? 'Iniciar sesión' : 'Crear cuenta');
+    form.elements.clave.autocomplete = registrando ? 'new-password' : 'current-password';
+    $('#error-acceso').textContent = '';
+  };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const boton = $('#boton-acceso');
+    boton.disabled = true;
+    const args = { email: form.elements.email.value.trim(), clave: form.elements.clave.value };
+    const r = await (registrando ? window.api.cuenta.registrar(args) : window.api.cuenta.entrar(args));
+    boton.disabled = false;
+    if (r.error) return ($('#error-acceso').textContent = t(r.error));
+    if (r.confirmar) {
+      $('#cambiar-modo').click();
+      $('#error-acceso').textContent = t('Te enviamos un correo para confirmar la cuenta. Confírmala y luego entra aquí.');
+      return;
+    }
+    cuentaEmail = r.email;
+    caja.hidden = true;
+    document.body.classList.remove('sin-sesion');
+    await cargarDatos();
+    aplicarAjustes();
+    ir();
+  };
+}
+
+async function cargarDatos() {
+  const r = await window.api.leerDatos();
+  rev = r.rev;
+  datos = normalizar(r.datos);
+}
+
 (async () => {
   fijarTraductor(t);
-  datos = normalizar(await window.api.leerDatos());
+  await cargarDatos();
   aplicarAjustes();
   window.addEventListener('hashchange', ir);
+  window.api.alCambiarSync((s) => {
+    ultimoSync = s;
+    if (datos) pintarSync();
+  });
+  // Cambios que llegan de otro equipo: se refresca la pantalla, salvo con un formulario abierto (se hace al cerrarlo).
+  window.api.alLlegarDatos((r) => {
+    rev = r.rev;
+    datos = normalizar(r.datos);
+    aplicarAjustes();
+    if ($('#dialogo').open) $('#dialogo').addEventListener('close', ir, { once: true });
+    else if (!$('#acceso').hidden) return;
+    else ir();
+  });
+  const cuenta = await window.api.cuenta.estado();
+  cuentaEmail = cuenta.email;
+  if (cuenta.configurado && !cuenta.email) return mostrarAcceso();
   ir();
 })();

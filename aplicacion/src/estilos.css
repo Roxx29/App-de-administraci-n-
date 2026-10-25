@@ -142,3 +142,15 @@ legend { font: 600 13px var(--sans); color: var(--texto); padding: 0; margin-bot
 .calculo.ok span:first-child b { color: var(--secundario-claro); }
 .calculo.agotado span:first-child b, .calculo.agotado span:nth-child(2) b { color: var(--peligro); }
 ::selection { background: color-mix(in srgb, var(--primario) 35%, transparent); }
+/* Acceso */
+body.sin-sesion > aside, body.sin-sesion > main { display: none; }
+#acceso { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.acceso-caja { width: min(380px, 100%); background: var(--panel); border: 1px solid var(--borde); border-radius: 14px; padding: 28px; box-shadow: 0 12px 40px #0004; }
+.acceso-caja .marca { margin-bottom: 22px; }
+.acceso-caja h1 { margin-bottom: 4px; }
+.acceso-caja button.primario { width: 100%; padding: 10px; }
+.cambiar-modo { text-align: center; color: var(--suave); font-size: 13px; margin: 14px 0 0; }
+button.enlace { background: none; border: 0; padding: 0; color: var(--primario-claro); text-decoration: underline; text-underline-offset: 3px; }
+.cuenta-linea { display: flex; flex-direction: column; gap: 2px; margin: 0 0 12px; }
+.cuenta-linea small { color: var(--suave); font-size: 11px; }
+.estado-local.bajo { color: var(--primario-claro); } .estado-local.agotado { color: var(--peligro); }

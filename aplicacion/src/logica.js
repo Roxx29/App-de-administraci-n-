@@ -86,7 +86,7 @@ function registrarVenta(datos, lineas, { metodo, cliente, fecha = new Date() }) 
   const secuencia = datos.secuencia + 1;
   const { total, base, cuota } = totalesTicket(lineas, datos.ajustes.iva);
   const venta = {
-    id: `v${secuencia}`,
+    id: crypto.randomUUID(), // único entre equipos que sincronizan
     numero: numeroFactura(fecha.getFullYear(), secuencia),
     fecha: fecha.toISOString(),
     cliente: cliente || tr('Cliente mostrador'),

@@ -28,3 +28,11 @@ Pruebas de seguridad: `PGHOST=… sh supabase/pruebas/ejecutar.sh` sobre un Post
 `aplicacion/movil/` contiene la misma interfaz empaquetada con Capacitor (ver `docs/decisiones/005-movil-capacitor.md`).
 - `cd aplicacion/movil && npm install && npm run sync` prepara `www/` y el proyecto Android.
 - El APK lo compila GitHub Actions (workflow "APK Android"). En local hace falta el SDK de Android y JDK 21: `cd android && ./gradlew assembleDebug`.
+
+## Restablecer contraseña
+
+"¿Olvidaste tu contraseña?" en la pantalla de acceso envía un **código** por correo (sin enlaces: las apps no abren enlaces de correo). Configuración necesaria en Supabase:
+1. Authentication → Emails → plantilla **Reset Password**: incluir `{{ .Token }}` y quitar `{{ .ConfirmationURL }}`. Por ejemplo: `<p>Tu código para restablecer la contraseña de ApexLedger es: <b>{{ .Token }}</b></p>`.
+2. Authentication → Providers → Email: caducidad del código (OTP) de 15 minutos.
+3. Authentication → Passwords: longitud mínima 8.
+4. El correo integrado de Supabase envía pocos correos por hora; para uso real, configurar un SMTP propio (Authentication → SMTP).

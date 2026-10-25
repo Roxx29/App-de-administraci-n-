@@ -119,6 +119,9 @@
       registrar: conNucleo((n, args) => n.cuenta.registrar(args)),
       salir: conNucleo((n) => n.cuenta.salir()),
       pendientes: conNucleo((n) => n.cuenta.pendientes()),
+      pedirCodigo: conNucleo((n, args) => n.cuenta.pedirCodigo(args)),
+      restablecer: conNucleo((n, args) => n.cuenta.restablecer(args)),
+      cancelarRestablecer: conNucleo((n) => n.cuenta.cancelarRestablecer()),
     },
     equipo: {
       listar: conNucleo((n) => n.equipo.listar()),

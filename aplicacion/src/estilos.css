@@ -254,3 +254,4 @@ dialog.hoja-inferior { margin: auto auto 0; width: 100%; max-width: 100%; border
   .permisos { grid-template-columns: 1fr; }
   #aviso { left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); text-align: center; }
 }
+.olvido { margin: -4px 0 4px; text-align: right; font-size: 13px; }

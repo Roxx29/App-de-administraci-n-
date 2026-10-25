@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('api', {
     registrar: (args) => ipcRenderer.invoke('cuenta:registrar', args),
     salir: () => ipcRenderer.invoke('cuenta:salir'),
     pendientes: () => ipcRenderer.invoke('cuenta:pendientes'),
+    pedirCodigo: (args) => ipcRenderer.invoke('cuenta:pedirCodigo', args),
+    restablecer: (args) => ipcRenderer.invoke('cuenta:restablecer', args),
+    cancelarRestablecer: () => ipcRenderer.invoke('cuenta:cancelarRestablecer'),
   },
   equipo: {
     listar: () => ipcRenderer.invoke('equipo:listar'),

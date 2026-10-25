@@ -13,6 +13,7 @@ function crearNucleo({ S, normalizar, almacen, almacenSesion, crearCliente, conf
   let usuario = null; // { id, email }
   let sincronizando = false;
   let temporizador = null;
+  let recuperando = false; // código ya verificado, falta guardar la contraseña nueva
 
   const escribir = (nombre, valor) => almacen.escribir(nombre, valor);
   const contarPendientes = () => Object.keys(estadoSync.pendientes).length;
@@ -172,7 +173,9 @@ function crearNucleo({ S, normalizar, almacen, almacenSesion, crearCliente, conf
     [/invalid login credentials/i, 'Correo o contraseña incorrectos.'],
     [/email not confirmed/i, 'Confirma tu correo con el enlace que te enviamos y vuelve a entrar.'],
     [/already registered|already exists/i, 'Ya existe una cuenta con ese correo.'],
-    [/password should be at least|weak password/i, 'La contraseña debe tener al menos 6 caracteres.'],
+    [/password should be at least|weak password/i, 'La contraseña es demasiado corta o débil.'],
+    [/token has expired or is invalid|otp.*(expired|invalid)|invalid.*(token|otp)/i, 'Código incorrecto o caducado.'],
+    [/same.*password|different from the old/i, 'La contraseña nueva debe ser distinta de la anterior.'],
     [/invalid email|unable to validate email/i, 'Correo no válido.'],
     [/fetch failed|failed to fetch|network/i, 'No hay conexión con el servidor.'],
   ];
@@ -200,6 +203,39 @@ function crearNucleo({ S, normalizar, almacen, almacenSesion, crearCliente, conf
       return true;
     },
     pendientes: () => contarPendientes(),
+
+    // Restablecer contraseña con un código de un solo uso enviado por correo (sin enlaces: no hay deep links).
+    // Siempre responde igual, exista o no la cuenta; solo un fallo de red se distingue.
+    async pedirCodigo({ email }) {
+      const { error } = await cliente.auth.resetPasswordForEmail(email.trim().toLowerCase());
+      if (error && /fetch failed|failed to fetch|network/i.test(error.message)) return { error: mensajeAcceso(error) };
+      return { ok: true };
+    },
+    // Si la contraseña nueva se rechaza, se puede reintentar sin pedir otro código (la sesión de recuperación sigue).
+    async restablecer({ email, codigo, clave }) {
+      if (!recuperando) {
+        await almacen.escribir('recuperando.json', true); // si la app se cierra antes de terminar, esta sesión se descarta
+        const { error } = await cliente.auth.verifyOtp({ email: email.trim().toLowerCase(), token: codigo.trim(), type: 'recovery' });
+        if (error) {
+          await almacen.escribir('recuperando.json', false);
+          return { error: mensajeAcceso(error) };
+        }
+        recuperando = true;
+      }
+      const { data, error } = await cliente.auth.updateUser({ password: clave });
+      if (error) return { error: mensajeAcceso(error), reintentar: true };
+      recuperando = false;
+      await almacen.escribir('recuperando.json', false);
+      // Cambiar la contraseña no echa a otros equipos: se cierran sus sesiones (un equipo robado deja de entrar).
+      const otros = await cliente.auth.signOut({ scope: 'others' });
+      await activarUsuario(data.user);
+      return { email: data.user.email, avisoOtros: !!otros.error };
+    },
+    async cancelarRestablecer() {
+      if (recuperando) await cliente.auth.signOut({ scope: 'local' });
+      recuperando = false;
+      await almacen.escribir('recuperando.json', false);
+    },
   };
 
   // ---------- Equipo (solo con conexión; la seguridad la aplica el servidor) ----------
@@ -231,10 +267,15 @@ function crearNucleo({ S, normalizar, almacen, almacenSesion, crearCliente, conf
     cliente = crearCliente(config.supabaseUrl, config.supabaseAnonKey, {
       auth: { storage: almacenSesion, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
     });
+    // Una recuperación de contraseña que quedó a medias no debe servir para entrar.
+    if (await almacen.leer('recuperando.json')) {
+      await cliente.auth.signOut({ scope: 'local' });
+      await almacen.escribir('recuperando.json', false);
+    }
     // Con sesión guardada se entra sin internet; los tokens se renuevan cuando vuelva la conexión.
     const { data } = await cliente.auth.getSession();
     if (data.session?.user) await activarUsuario(data.session.user);
-    setInterval(() => programarSync(0), 30000);
+    setInterval(() => programarSync(0), 30000).unref?.(); // en Node (pruebas) no impide terminar; en el navegador no existe
   }
 
   return {

@@ -900,6 +900,7 @@ function mostrarAcceso(aviso = '') {
       <p class="sub">${t('Tus datos se guardan en este equipo y se sincronizan con la nube.')}</p>
       <label>${t('Correo')}<input name="email" type="email" required autocomplete="email"></label>
       <label>${t('Contraseña')}<input name="clave" type="password" required minlength="6" autocomplete="current-password"></label>
+      <p class="olvido"><button type="button" class="enlace" id="olvide">${t('¿Olvidaste tu contraseña?')}</button></p>
       <p class="error" id="error-acceso" role="alert">${esc(aviso)}</p>
       <button class="primario" id="boton-acceso">${t('Entrar')}</button>
       <p class="cambiar-modo"><span id="pregunta-modo">${t('¿No tienes cuenta?')}</span> <button type="button" class="enlace" id="cambiar-modo">${t('Crear cuenta')}</button></p>
@@ -907,8 +908,10 @@ function mostrarAcceso(aviso = '') {
   let registrando = false;
   const form = $('#form-acceso');
   form.elements.email.focus();
+  $('#olvide').onclick = () => mostrarRestablecer(form.elements.email.value.trim());
   $('#cambiar-modo').onclick = () => {
     registrando = !registrando;
+    $('#olvide').hidden = registrando;
     $('#acceso-titulo').textContent = t(registrando ? 'Crear cuenta' : 'Iniciar sesión');
     $('#boton-acceso').textContent = t(registrando ? 'Crear cuenta' : 'Entrar');
     $('#pregunta-modo').textContent = t(registrando ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?');
@@ -942,6 +945,83 @@ function mostrarAcceso(aviso = '') {
 function recibir(r) {
   rev = r.rev;
   datos = conStock(normalizar(r.datos));
+}
+
+// Restablecer contraseña: 1) pedir código por correo; 2) código + contraseña nueva.
+function mostrarRestablecer(email = '') {
+  const caja = $('#acceso');
+  const volver = async (aviso = '') => {
+    await window.api.cuenta.cancelarRestablecer();
+    mostrarAcceso(aviso);
+  };
+  caja.innerHTML = `
+    <form class="acceso-caja" id="form-pedir" novalidate>
+      <h1>${t('Restablecer contraseña')}</h1>
+      <p class="sub">${t('Te enviaremos un código a tu correo para crear una contraseña nueva.')}</p>
+      <label>${t('Correo')}<input name="email" type="email" required autocomplete="email" value="${esc(email)}"></label>
+      <p class="error" id="error-pedir" role="alert"></p>
+      <button class="primario" id="boton-pedir">${t('Enviar código')}</button>
+      <p class="cambiar-modo"><button type="button" class="enlace" id="volver">${t('Volver a iniciar sesión')}</button></p>
+    </form>`;
+  const pedir = $('#form-pedir');
+  pedir.elements.email.focus();
+  $('#volver').onclick = () => volver();
+  pedir.onsubmit = async (e) => {
+    e.preventDefault();
+    const correo = pedir.elements.email.value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) return ($('#error-pedir').textContent = t('Correo no válido.'));
+    $('#boton-pedir').disabled = true;
+    const r = await window.api.cuenta.pedirCodigo({ email: correo });
+    $('#boton-pedir').disabled = false;
+    if (r.error) return ($('#error-pedir').textContent = t(r.error));
+    pasoCodigo(correo);
+  };
+
+  function pasoCodigo(correo) {
+    caja.innerHTML = `
+      <form class="acceso-caja" id="form-codigo" novalidate>
+        <h1>${t('Revisa tu correo')}</h1>
+        <p class="sub">${t('Si existe una cuenta con {c}, te enviamos un código. Escríbelo y elige tu contraseña nueva.', { c: esc(correo) })}</p>
+        <label>${t('Código')}<input name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required></label>
+        <label>${t('Contraseña nueva')}<input name="clave" type="password" autocomplete="new-password" minlength="8" required></label>
+        <label>${t('Repite la contraseña')}<input name="clave2" type="password" autocomplete="new-password" minlength="8" required></label>
+        <p class="error" id="error-codigo" role="alert"></p>
+        <button class="primario" id="boton-codigo">${t('Guardar contraseña y entrar')}</button>
+        <p class="cambiar-modo"><button type="button" class="enlace" id="reenviar">${t('Pedir otro código')}</button> · <button type="button" class="enlace" id="volver">${t('Cancelar')}</button></p>
+      </form>`;
+    const f = $('#form-codigo');
+    f.elements.codigo.focus();
+    $('#volver').onclick = () => volver();
+    $('#reenviar').onclick = async () => {
+      await window.api.cuenta.cancelarRestablecer();
+      mostrarRestablecer(correo);
+    };
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const codigo = f.elements.codigo.value.replace(/\s/g, '');
+      const clave = f.elements.clave.value;
+      const error = !/^\d{6,10}$/.test(codigo) && !f.elements.codigo.readOnly ? t('Escribe el código que recibiste por correo.')
+        : clave.length < 8 ? t('La contraseña debe tener al menos 8 caracteres.')
+        : clave !== f.elements.clave2.value ? t('Las contraseñas no coinciden.') : '';
+      if (error) return ($('#error-codigo').textContent = error);
+      $('#boton-codigo').disabled = true;
+      const r = await window.api.cuenta.restablecer({ email: correo, codigo, clave });
+      $('#boton-codigo').disabled = false;
+      if (r.error) {
+        $('#error-codigo').textContent = t(r.error);
+        // El código ya valió: solo hay que elegir otra contraseña.
+        if (r.reintentar) f.elements.codigo.readOnly = true;
+        return;
+      }
+      usarCuenta(await window.api.cuenta.estado());
+      caja.hidden = true;
+      document.body.classList.remove('sin-sesion');
+      await cargarDatos();
+      aplicarAjustes();
+      ir();
+      avisar(r.avisoOtros ? t('Contraseña cambiada. No se pudo cerrar la sesión en tus otros equipos.') : t('Contraseña cambiada. Se cerró la sesión en tus otros equipos.'), r.avisoOtros);
+    };
+  }
 }
 
 async function cargarDatos() {

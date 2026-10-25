@@ -19,6 +19,8 @@ copiar('build/icon.png', 'icon.png');
 copiar('node_modules/@supabase/supabase-js/dist/umd/supabase.js', 'supabase.js');
 copiar('node_modules/exceljs/dist/exceljs.min.js', 'exceljs.min.js');
 fs.copyFileSync(path.join(__dirname, 'plataforma-movil.js'), path.join(www, 'plataforma-movil.js'));
+// El puente nativo de Android solo trae lo básico; registerPlugin lo añade @capacitor/core.
+fs.copyFileSync(path.join(__dirname, 'node_modules/@capacitor/core/dist/capacitor.js'), path.join(www, 'capacitor.js'));
 
 // Fuentes: solo los pesos que usa la app y sus archivos woff2.
 for (const [familia, prefijo] of [['hanken-grotesk', 'hanken-grotesk'], ['jetbrains-mono', 'jetbrains-mono']]) {
@@ -48,7 +50,7 @@ let html = fs.readFileSync(path.join(www, 'index.html'), 'utf8');
 html = html
   .replace(/\.\.\/node_modules\/@fontsource\/([\w-]+)\/(\d+)\.css/g, 'fuentes/$1-$2.css')
   .replace("default-src 'self';", `default-src 'self'; connect-src 'self'${conectar};`)
-  .replace('<script src="app.js"></script>', ['sincronizacion.js', 'nucleo.js', 'supabase.js', 'exceljs.min.js', 'plataforma-movil.js', 'app.js'].map((s) => `<script src="${s}"></script>`).join('\n  '));
+  .replace('<script src="app.js"></script>', ['sincronizacion.js', 'nucleo.js', 'supabase.js', 'exceljs.min.js', 'capacitor.js', 'plataforma-movil.js', 'app.js'].map((s) => `<script src="${s}"></script>`).join('\n  '));
 if (!html.includes('plataforma-movil.js')) throw new Error('No se pudo insertar plataforma-movil.js en index.html');
 fs.writeFileSync(path.join(www, 'index.html'), html);
 console.log('www/ listo');

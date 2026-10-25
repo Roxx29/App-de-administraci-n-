@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # para publicar el APK como Release
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,3 +39,13 @@ jobs:
         with:
           name: ApexLedger-android
           path: aplicacion/movil/android/app/build/outputs/apk/debug/*.apk
+      # Descarga directa desde la página de Releases (una por versión de aplicacion/movil/package.json).
+      - name: Publicar APK en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(node -p "require('./aplicacion/movil/package.json').version")
+          cp aplicacion/movil/android/app/build/outputs/apk/debug/app-debug.apk "ApexLedger-$V.apk"
+          gh release view "android-v$V" >/dev/null 2>&1 \
+            || gh release create "android-v$V" --target "$GITHUB_SHA" --prerelease --title "ApexLedger Android $V" --notes "APK de prueba (sin firmar). Instalar permitiendo apps de origen desconocido."
+          gh release upload "android-v$V" "ApexLedger-$V.apk" --clobber

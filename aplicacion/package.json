@@ -1,7 +1,7 @@
 {
   "name": "apex-ledger",
   "productName": "ApexLedger",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Administración para pymes: productos, inventario, ventas, facturas y exportación a Excel.",
   "main": "main.js",
   "author": "ApexLedger",
@@ -23,9 +23,21 @@
   },
   "build": {
     "appId": "com.apexledger.app",
-    "files": ["main.js", "preload.js", "build/icon.png", "src/**/*", "!src/**/*.test.js"],
-    "directories": { "output": "dist" },
-    "win": { "icon": "build/icon.png" },
-    "portable": { "artifactName": "ApexLedger-${version}.exe" }
+    "files": [
+      "main.js",
+      "preload.js",
+      "build/icon.png",
+      "src/**/*",
+      "!src/**/*.test.js"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "build/icon.png"
+    },
+    "portable": {
+      "artifactName": "ApexLedger-${version}.exe"
+    }
   }
 }

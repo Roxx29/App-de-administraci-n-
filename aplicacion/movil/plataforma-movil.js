@@ -9,7 +9,13 @@
   const DATOS = 'DATA';
 
   // ---------- Cifrado de los archivos de datos ----------
-  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  // Por trozos: con datos grandes (fotos) pasar todo de golpe a fromCharCode desborda la pila.
+  function b64(buf) {
+    const bytes = new Uint8Array(buf);
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
   const desdeB64 = (txt) => Uint8Array.from(atob(txt), (c) => c.charCodeAt(0));
   let clave = null;
   async function obtenerClave() {
@@ -30,14 +36,6 @@
   async function descifrar(txt) {
     const [iv, datos] = txt.split('.');
     return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: desdeB64(iv) }, await obtenerClave(), desdeB64(datos)));
-  }
-
-  // b64 de un buffer grande sin desbordar la pila.
-  function b64Grande(buf) {
-    const bytes = new Uint8Array(buf);
-    let s = '';
-    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    return btoa(s);
   }
 
   // ---------- Almacén de archivos (escrituras en cola para que nunca se pisen) ----------
@@ -104,7 +102,7 @@
       filas.forEach((f) => hoja.addRow(f));
     }
     const archivo = `${nombre}.xlsx`;
-    const { uri } = await Filesystem.writeFile({ path: archivo, directory: 'CACHE', data: b64Grande(await libro.xlsx.writeBuffer()) });
+    const { uri } = await Filesystem.writeFile({ path: archivo, directory: 'CACHE', data: b64(await libro.xlsx.writeBuffer()) });
     await Share.share({ title: archivo, files: [uri] });
     return uri;
   }

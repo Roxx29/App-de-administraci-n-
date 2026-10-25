@@ -1,7 +1,8 @@
-/* global totalesTicket, datosIniciales, aCentimos, formatoDinero, validarProducto, estadoStock, registrarVenta, resumen */
+/* global CATEGORIAS_GASTO, diaLocal, validarGasto, informe, serieMensual, totalesTicket, datosIniciales, aCentimos, formatoDinero, validarProducto, estadoStock, registrarVenta, resumen */
 let datos;
 let ticket = []; // líneas del ticket en curso
 let metodoPago = 'Efectivo';
+let periodo = 'mes'; // periodo elegido en Informes
 
 const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -77,6 +78,58 @@ const vistas = {
         <tbody>${lista.map((v) => `<tr><td class="mono">${v.numero}</td><td>${fecha(v.fecha)}</td><td>${esc(v.cliente)}</td><td>${esc(v.metodo)}</td>
           <td class="num">${v.lineas.reduce((s, l) => s + l.cantidad, 0)}</td><td class="num">${dinero(v.total)}</td>
           <td class="num"><button data-pdf="${v.id}">Factura PDF</button></td></tr>`).join('')}</tbody></table>` : '<p class="vacio">Aún no hay ventas. Registra la primera en el Punto de Venta.</p>'}</div>`;
+  },
+
+  gastos() {
+    const lista = datos.gastos.slice().sort((a, b) => b.fecha.localeCompare(a.fecha));
+    const mes = diaLocal(new Date()).slice(0, 7);
+    const delMes = datos.gastos.filter((g) => g.fecha.startsWith(mes)).reduce((s, g) => s + g.importe, 0);
+    return `
+      <div class="cabecera"><div><h1>Gastos Operativos</h1><p class="sub">Este mes: <b class="mono">${dinero(delMes)}</b> · ${datos.gastos.length} gastos registrados</p></div>
+        <div class="acciones"><button id="exportar-gastos" ${lista.length ? '' : 'disabled'}>Exportar a Excel</button><button class="primario" id="nuevo-gasto">+ Nuevo gasto</button></div></div>
+      <div class="panel">${lista.length ? `<table>
+        <thead><tr><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Método</th><th class="num">Importe</th><th></th></tr></thead>
+        <tbody>${lista.map((g) => `<tr><td class="mono">${g.fecha.split('-').reverse().join('/')}</td><td>${esc(g.concepto)}</td><td>${esc(g.categoria)}</td><td>${esc(g.metodo)}</td>
+          <td class="num">${dinero(g.importe)}</td><td class="num"><button data-editar="${g.id}">Editar</button></td></tr>`).join('')}</tbody></table>`
+        : '<p class="vacio">Aún no hay gastos. Registra alquiler, proveedores, luz… para ver la rentabilidad real en Informes.</p>'}</div>`;
+  },
+
+  informes() {
+    const [desde, hasta] = rangoPeriodo();
+    const r = informe(datos, desde, hasta);
+    const serie = serieMensual(datos, 6);
+    const maxSerie = Math.max(1, ...serie.flatMap((m) => [m.ingresos, m.costes]));
+    const maxCat = Math.max(1, ...r.porCategoria.map((c) => c[1]));
+    const periodos = { mes: 'Este mes', anterior: 'Mes anterior', anio: 'Este año', todo: 'Todo' };
+    return `
+      <div class="cabecera"><div><h1>Informes &amp; Rentabilidad</h1><p class="sub">Del ${desde.split('-').reverse().join('/')} al ${hasta.split('-').reverse().join('/')} · importes sin IVA</p></div>
+        <div class="acciones">${Object.entries(periodos).map(([k, t]) => `<button data-periodo="${k}" class="${k === periodo ? 'activo-periodo' : ''}">${t}</button>`).join('')}
+        <button class="primario" id="exportar-informe">Exportar a Excel</button></div></div>
+      <div class="tarjetas">
+        <div class="tarjeta"><small>Beneficio neto</small><div class="valor ${r.beneficio < 0 ? 'agotado' : 'ok'}">${dinero(r.beneficio)}</div><small>Margen neto ${r.margen}%</small></div>
+        <div class="tarjeta"><small>Ingresos (sin IVA)</small><div class="valor">${dinero(r.ingresos)}</div><small>${r.tickets} tickets · facturado ${dinero(r.facturado)}</small></div>
+        <div class="tarjeta"><small>Costo mercancía vendida</small><div class="valor">${dinero(r.cogs)}</div><small>según costo de compra</small></div>
+        <div class="tarjeta"><small>Gastos operativos</small><div class="valor">${dinero(r.gastos)}</div><small>${r.porCategoria.length} categorías</small></div>
+        <div class="tarjeta"><small>IVA repercutido</small><div class="valor">${dinero(r.iva)}</div><small>a declarar</small></div>
+      </div>
+      <div class="dos-paneles">
+        <div class="panel"><div class="cabecera"><h2>Ingresos vs. costes · últimos 6 meses</h2>
+          <div class="leyenda"><span><i style="background:var(--serie-1)"></i>Ingresos</span><span><i style="background:var(--serie-2)"></i>Costes (mercancía + gastos)</span></div></div>
+          <div class="grafico" role="img" aria-label="Ingresos y costes por mes">
+            ${serie.map((m) => `<div class="mes"><div class="barras">
+              <div class="barra" style="height:${(m.ingresos / maxSerie) * 100}%;background:var(--serie-1)" title="${m.mes} · Ingresos ${dinero(m.ingresos)}"></div>
+              <div class="barra" style="height:${(m.costes / maxSerie) * 100}%;background:var(--serie-2)" title="${m.mes} · Costes ${dinero(m.costes)}"></div>
+            </div><small>${m.mes}</small><small class="${m.beneficio < 0 ? 'agotado' : 'ok'}">${dinero(m.beneficio)}</small></div>`).join('')}
+          </div></div>
+        <div class="panel"><h2>Gastos por categoría</h2>${r.porCategoria.length ? r.porCategoria.map(([c, v]) => `
+          <div class="categoria"><div class="cabecera"><span>${esc(c)}</span><span class="mono">${dinero(v)}</span></div>
+          <div class="pista"><div style="width:${(v / maxCat) * 100}%"></div></div></div>`).join('') : '<p class="vacio">Sin gastos en este periodo.</p>'}</div>
+      </div>
+      <div class="panel" style="margin-top:12px"><h2>Rentabilidad por producto</h2>${r.topProductos.length ? `<table>
+        <thead><tr><th>Producto</th><th class="num">Unidades</th><th class="num">Ingresos</th><th class="num">Costo</th><th class="num">Beneficio bruto</th><th class="num">Margen</th></tr></thead>
+        <tbody>${r.topProductos.map((p) => `<tr><td>${esc(p.nombre)} <small class="chip">${esc(p.sku)}</small></td><td class="num">${p.unidades}</td><td class="num">${dinero(p.ingresos)}</td>
+          <td class="num">${dinero(p.costo)}</td><td class="num">${dinero(p.ingresos - p.costo)}</td><td class="num">${p.ingresos ? Math.round(((p.ingresos - p.costo) / p.ingresos) * 100) : 0}%</td></tr>`).join('')}</tbody></table>`
+        : '<p class="vacio">Sin ventas en este periodo.</p>'}</div>`;
   },
 
   ajustes() {
@@ -195,6 +248,32 @@ const alMontar = {
       datos.ventas.map((v) => [v.numero, fecha(v.fecha), v.cliente, v.metodo, v.base / 100, v.cuota / 100, v.total / 100]));
   },
 
+  gastos() {
+    $('#nuevo-gasto').onclick = () => formularioGasto();
+    $('#vista').onclick = (e) => e.target.dataset.editar && formularioGasto(datos.gastos.find((g) => g.id === e.target.dataset.editar));
+    $('#exportar-gastos').onclick = () => exportar('Gastos', ['Fecha', 'Concepto', 'Categoría', 'Método', 'Importe'],
+      datos.gastos.map((g) => [g.fecha, g.concepto, g.categoria, g.metodo, g.importe / 100]));
+  },
+
+  informes() {
+    $('#vista').onclick = (e) => {
+      if (!e.target.dataset.periodo) return;
+      periodo = e.target.dataset.periodo;
+      ir();
+    };
+    $('#exportar-informe').onclick = () => {
+      const [desde, hasta] = rangoPeriodo();
+      const r = informe(datos, desde, hasta);
+      exportar('Informe', ['Concepto', 'Importe'], [
+        ['Desde', desde], ['Hasta', hasta], ['Tickets', r.tickets], ['Facturado (IVA incl.)', r.facturado / 100], ['IVA repercutido', r.iva / 100],
+        ['Ingresos (sin IVA)', r.ingresos / 100], ['Costo mercancía vendida', r.cogs / 100], ['Gastos operativos', r.gastos / 100], ['Beneficio neto', r.beneficio / 100], ['Margen neto %', r.margen],
+      ], [
+        { nombre: 'Productos', columnas: ['SKU', 'Producto', 'Unidades', 'Ingresos', 'Costo', 'Beneficio'], filas: r.topProductos.map((p) => [p.sku, p.nombre, p.unidades, p.ingresos / 100, p.costo / 100, (p.ingresos - p.costo) / 100]) },
+        { nombre: 'Gastos por categoría', columnas: ['Categoría', 'Importe'], filas: r.porCategoria.map(([c, v]) => [c, v / 100]) },
+      ]);
+    };
+  },
+
   ajustes() {
     $('#form-ajustes').onsubmit = async (e) => {
       e.preventDefault();
@@ -251,9 +330,52 @@ function formularioProducto(p) {
   };
 }
 
-async function exportar(nombre, columnas, filas) {
+function rangoPeriodo() {
+  const h = new Date();
+  if (periodo === 'anterior') return [diaLocal(new Date(h.getFullYear(), h.getMonth() - 1, 1)), diaLocal(new Date(h.getFullYear(), h.getMonth(), 0))];
+  if (periodo === 'anio') return [`${h.getFullYear()}-01-01`, `${h.getFullYear()}-12-31`];
+  if (periodo === 'todo') return ['0000-01-01', '9999-12-31'];
+  return [diaLocal(new Date(h.getFullYear(), h.getMonth(), 1)), diaLocal(new Date(h.getFullYear(), h.getMonth() + 1, 0))];
+}
+
+function formularioGasto(g) {
+  const dlg = $('#dialogo');
+  dlg.innerHTML = `
+    <form method="dialog" id="form-gasto">
+      <h2>${g ? 'Editar gasto' : 'Nuevo gasto'}</h2>
+      <label>Concepto<input name="concepto" required value="${esc(g?.concepto)}" placeholder="Ej.: Alquiler octubre"></label>
+      <div class="dos">
+        <label>Fecha<input name="fecha" type="date" required value="${g?.fecha || diaLocal(new Date())}"></label>
+        <label>Importe (IVA incl.)<input name="importe" inputmode="decimal" required value="${g ? decimal(g.importe) : ''}" placeholder="0,00"></label>
+        <label>Categoría<select name="categoria">${CATEGORIAS_GASTO.map((c) => `<option ${c === g?.categoria ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>Método de pago<select name="metodo">${['Transferencia', 'Tarjeta', 'Efectivo', 'Domiciliación'].map((m) => `<option ${m === g?.metodo ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
+      </div>
+      <p class="error" id="error-gasto"></p>
+      <div class="acciones" style="justify-content:space-between">
+        ${g ? '<button type="button" class="peligro" id="borrar">Eliminar</button>' : '<span></span>'}
+        <div class="acciones"><button type="button" id="cancelar">Cancelar</button><button class="primario">Guardar</button></div>
+      </div>
+    </form>`;
+  dlg.showModal();
+  $('#cancelar').onclick = () => dlg.close();
+  if (g) $('#borrar').onclick = async () => {
+    if (!confirm(`¿Eliminar el gasto "${g.concepto}"?`)) return;
+    if (await guardar({ ...datos, gastos: datos.gastos.filter((x) => x.id !== g.id) })) { dlg.close(); ir(); }
+  };
+  $('#form-gasto').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(e.target));
+    const nuevo = { id: g?.id || 'g' + Date.now().toString(36), concepto: f.concepto.trim(), fecha: f.fecha, categoria: f.categoria, metodo: f.metodo, importe: aCentimos(f.importe) };
+    const error = validarGasto(nuevo);
+    if (error) return ($('#error-gasto').textContent = error);
+    const gastos = g ? datos.gastos.map((x) => (x.id === g.id ? nuevo : x)) : [...datos.gastos, nuevo];
+    if (await guardar({ ...datos, gastos })) { dlg.close(); avisar('Gasto guardado'); ir(); }
+  };
+}
+
+async function exportar(nombre, columnas, filas, otrasHojas = []) {
   try {
-    const r = await window.api.exportarExcel({ nombre, columnas, filas });
+    const r = await window.api.exportarExcel({ nombre, hojas: [{ nombre, columnas, filas }, ...otrasHojas] });
     if (r) avisar('Excel guardado');
   } catch (e) {
     avisar('No se pudo exportar: ' + e.message, true);
@@ -291,7 +413,7 @@ function ir() {
 }
 
 (async () => {
-  datos = (await window.api.leerDatos()) || datosIniciales();
+  datos = { ...datosIniciales(), ...(await window.api.leerDatos()) }; // completa campos nuevos en datos antiguos
   $('#nombre-negocio').textContent = datos.ajustes.negocio.toUpperCase();
   window.addEventListener('hashchange', ir);
   ir();

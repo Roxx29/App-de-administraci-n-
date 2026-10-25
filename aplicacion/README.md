@@ -6,6 +6,6 @@ Hecha con Electron + HTML/JS; la lógica de negocio está en `src/logica.js` par
 - `npm install` → instalar
 - `npm start` → abrir la app
 - `npm test` → pruebas
-- `npm run build:win` → genera `dist/ApexLedger-<versión>.exe` (portable, no necesita instalación)
+- `npm run build:win` → genera `dist/ApexLedger-<versión>.exe` (portable, no necesita instalación). Desde Linux: `npm run build:win:linux` (sin ícono en el .exe; el de GitHub Actions sí lo lleva)
 
 Los datos se guardan en `datos.json` dentro de la carpeta de usuario de la app (con respaldo automático) hasta que se elija base de datos.

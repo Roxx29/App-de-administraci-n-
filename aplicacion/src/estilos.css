@@ -4,6 +4,7 @@
   --primario: #d97706; --primario-claro: #fdba74;
   --secundario: #059669; --secundario-claro: #6ee7b7;
   --terciario: #0ea5e9; --peligro: #f43f5e;
+  --serie-1: #0284c7; --serie-2: #d97706; /* validado CVD sobre fondo oscuro */
   --mono: 'JetBrains Mono', monospace; --sans: 'Hanken Grotesk', system-ui, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -65,3 +66,17 @@ dialog::backdrop { background: #000a; }
 #aviso.visible { opacity: 1; }
 #aviso.mal { background: var(--peligro); }
 @media (max-width: 1100px) { .pos { grid-template-columns: 1fr; } }
+button.activo-periodo { border-color: var(--primario); color: var(--primario-claro); }
+.dos-paneles { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+.leyenda { display: flex; gap: 14px; font: 11px var(--mono); color: var(--suave); }
+.leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
+.grafico { display: flex; gap: 8px; height: 220px; align-items: stretch; border-bottom: 1px solid var(--borde); padding-top: 8px; }
+.mes { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.mes small { font-size: 10px; color: var(--suave); }
+.barras { flex: 1; width: 100%; display: flex; gap: 2px; align-items: flex-end; justify-content: center; }
+.barra { width: 22px; min-height: 1px; border-radius: 4px 4px 0 0; }
+.barra:hover { filter: brightness(1.25); }
+.categoria { margin-bottom: 10px; font-size: 13px; }
+.pista { background: var(--panel-2); border-radius: 4px; height: 8px; margin-top: 4px; }
+.pista div { background: var(--serie-1); height: 100%; border-radius: 4px; }
+@media (max-width: 1100px) { .dos-paneles { grid-template-columns: 1fr; } }

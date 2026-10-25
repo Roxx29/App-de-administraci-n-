@@ -41,3 +41,29 @@ test('validarProducto detecta SKU duplicado y estado de stock', () => {
   assert.strictEqual(L.estadoStock(prod({ stock: 0 })), 'agotado');
   assert.strictEqual(L.estadoStock(prod({ stock: 2 })), 'bajo');
 });
+
+test('informe calcula rentabilidad con costo histórico y gastos', () => {
+  let datos = { ...L.datosIniciales(), productos: [prod({ stock: 10 })] };
+  // 2 uds a 46,25 con IVA 21% → base 76,45; costo 2 × 18,50 = 37,00
+  ({ datos } = L.registrarVenta(datos, [{ productoId: 'p1', sku: 'SKU-1', nombre: 'Lámpara', precio: 4625, cantidad: 2 }], { metodo: 'Efectivo', fecha: new Date(2026, 9, 10, 12) }));
+  datos.productos[0].costo = 99999; // cambiar el costo después no altera ventas pasadas
+  datos.gastos = [{ id: 'g1', fecha: '2026-10-05', concepto: 'Alquiler', categoria: 'Local y alquiler', importe: 2000 }, { id: 'g2', fecha: '2026-09-30', concepto: 'Fuera', categoria: 'Otros', importe: 500 }];
+  const r = L.informe(datos, '2026-10-01', '2026-10-31');
+  assert.strictEqual(r.ingresos, 7645);
+  assert.strictEqual(r.cogs, 3700);
+  assert.strictEqual(r.gastos, 2000);
+  assert.strictEqual(r.beneficio, 1945);
+  assert.strictEqual(r.topProductos[0].unidades, 2);
+  assert.deepStrictEqual(r.porCategoria, [['Local y alquiler', 2000]]);
+  const serie = L.serieMensual(datos, 2, new Date(2026, 9, 25));
+  assert.strictEqual(serie.length, 2);
+  assert.strictEqual(serie[0].costes, 500);
+  assert.strictEqual(serie[1].beneficio, 1945);
+});
+
+test('validarGasto', () => {
+  const g = { concepto: 'Luz', fecha: '2026-10-01', importe: 1500, categoria: 'Suministros' };
+  assert.strictEqual(L.validarGasto(g), null);
+  assert.match(L.validarGasto({ ...g, importe: 0 }), /importe/);
+  assert.match(L.validarGasto({ ...g, categoria: 'x' }), /Categoría/);
+});

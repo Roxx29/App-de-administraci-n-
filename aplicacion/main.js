@@ -25,17 +25,19 @@ function guardarDatos(datos) {
   return true;
 }
 
-async function exportarExcel(win, { nombre, columnas, filas }) {
+async function exportarExcel(win, { nombre, hojas }) {
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
     defaultPath: `${nombre}.xlsx`,
     filters: [{ name: 'Excel', extensions: ['xlsx'] }],
   });
   if (canceled) return null;
   const libro = new ExcelJS.Workbook();
-  const hoja = libro.addWorksheet(nombre.slice(0, 31));
-  hoja.columns = columnas.map((c) => ({ header: c, key: c, width: Math.max(12, c.length + 4) }));
-  hoja.getRow(1).font = { bold: true };
-  filas.forEach((f) => hoja.addRow(f));
+  for (const { nombre: titulo, columnas, filas } of hojas) {
+    const hoja = libro.addWorksheet(titulo.slice(0, 31));
+    hoja.columns = columnas.map((c) => ({ header: c, key: c, width: Math.max(12, c.length + 4) }));
+    hoja.getRow(1).font = { bold: true };
+    filas.forEach((f) => hoja.addRow(f));
+  }
   await libro.xlsx.writeFile(filePath);
   return filePath;
 }
@@ -62,6 +64,7 @@ function crearVentana() {
     minHeight: 640,
     backgroundColor: '#0b1220',
     title: 'ApexLedger',
+    icon: path.join(__dirname, 'build', 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });

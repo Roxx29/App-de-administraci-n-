@@ -1,0 +1,70 @@
+// Traducciones: las claves son el texto en español; si falta una, se muestra en español.
+const TRADUCCIONES = {
+  en: {
+    '+ Nuevo gasto': '+ New expense', '+ Nuevo producto': '+ New product', 'Ajustes': 'Settings', 'Ajustes guardados': 'Settings saved',
+    'Alertas de stock': 'Stock alerts', 'Apariencia': 'Appearance', 'Artículos': 'Items', 'Añadir uno': 'Add one',
+    'Aún no hay gastos. Registra alquiler, proveedores, luz… para ver la rentabilidad real en Informes.': 'No expenses yet. Record rent, suppliers, utilities… to see real profitability in Reports.',
+    'Aún no hay productos. Crea el primero con “+ Nuevo producto”.': 'No products yet. Create the first one with “+ New product”.',
+    'Aún no hay ventas.': 'No sales yet.', 'Aún no hay ventas. Registra la primera en el Punto de Venta.': 'No sales yet. Record the first one in Point of Sale.',
+    'Base': 'Net', 'Base imponible': 'Taxable base', 'Beneficio': 'Profit', 'Beneficio bruto': 'Gross profit', 'Beneficio neto': 'Net profit',
+    'Buscar por nombre, SKU o categoría…': 'Search by name, SKU or category…', 'Buscar producto o SKU…': 'Search product or SKU…', 'Buscar productos': 'Search products',
+    'Cancelar': 'Cancel', 'Cant.': 'Qty', 'Categoría': 'Category', 'Cliente': 'Customer', 'Cliente mostrador': 'Walk-in customer',
+    'Cobrar y generar factura': 'Charge and create invoice', 'Color principal': 'Main color', 'Concepto': 'Description', 'Costes': 'Costs',
+    'Costes (mercancía + gastos)': 'Costs (goods + expenses)', 'Costo': 'Cost', 'Costo de compra': 'Purchase cost', 'Costo mercancía vendida': 'Cost of goods sold',
+    'Datos del negocio, apariencia y diseño de las facturas.': 'Business details, appearance and invoice design.', 'Del {d} al {h}': 'From {d} to {h}',
+    'Desde': 'From', 'Dirección': 'Address', 'Diseño de factura': 'Invoice design', 'Editar': 'Edit', 'Editar gasto': 'Edit expense', 'Editar producto': 'Edit product',
+    'Ej.: Alquiler octubre': 'E.g.: October rent', 'Ej.: Cambios y devoluciones en 15 días con este ticket.': 'E.g.: Returns and exchanges within 15 days with this receipt.',
+    'Ej.: Tel. 600 000 000 · tienda@correo.com': 'E.g.: Tel. 600 000 000 · shop@mail.com', 'El archivo no es una imagen.': 'The file is not an image.',
+    'Elegir imagen': 'Choose image', 'Eliminar': 'Delete', 'Este mes': 'This month', 'Excel guardado': 'Excel saved', 'Existencias': 'Stock',
+    'Exportar a Excel': 'Export to Excel', 'FACTURA': 'INVOICE', 'Factura': 'Invoice', 'Factura PDF': 'Invoice PDF', 'Factura guardada': 'Invoice saved',
+    'Facturado (IVA incl.)': 'Invoiced (tax incl.)', 'Fecha': 'Date', 'Gasto guardado': 'Expense saved', 'Gastos': 'Expenses', 'Gastos Operativos': 'Operating Expenses',
+    'Gastos operativos': 'Operating expenses', 'Gastos por categoría': 'Expenses by category', 'Guardado local': 'Saved locally', 'Guardar': 'Save', 'Guardar ajustes': 'Save settings',
+    'Hasta': 'To', 'Haz clic en un producto para añadirlo al ticket.': 'Click a product to add it to the ticket.', 'IVA': 'Tax', 'IVA (%)': 'Tax (%)', 'IVA no válido.': 'Invalid tax rate.',
+    'IVA repercutido': 'Tax collected', 'Idioma': 'Language', 'Importe': 'Amount', 'Importe (IVA incl.)': 'Amount (tax incl.)', 'Informe': 'Report',
+    'Informes & Rentabilidad': 'Reports & Profitability', 'Ingresos': 'Revenue', 'Ingresos (sin IVA)': 'Revenue (excl. tax)', 'Ingresos vs. costes · últimos 6 meses': 'Revenue vs. costs · last 6 months',
+    'Ingresos y costes por mes': 'Revenue and costs per month', 'Inventario & Catálogo': 'Inventory & Catalog', 'La imagen pesa más de 10 MB.': 'The image is larger than 10 MB.',
+    'Logo': 'Logo', 'Logo de la empresa': 'Company logo', 'Margen': 'Margin', 'Margen neto %': 'Net margin %', 'Margen neto {m}%': 'Net margin {m}%', 'Mensaje final': 'Closing message',
+    'Muestra una foto en el inventario y en el punto de venta. Al desactivarlo, las fotos no se borran.': 'Shows a photo in inventory and point of sale. Turning it off does not delete the photos.',
+    'Método': 'Method', 'Método de pago': 'Payment method', 'Mínimo': 'Minimum', 'NIF / CIF / RUC': 'Tax ID', 'Negocio': 'Business', 'No hay más stock de {n}.': 'No more stock of {n}.',
+    'No se pudo exportar: {e}': 'Could not export: {e}', 'No se pudo guardar: {e}': 'Could not save: {e}', 'No se pudo leer la imagen.': 'Could not read the image.',
+    'Nombre': 'Name', 'Nombre del negocio': 'Business name', 'Notas / condiciones': 'Notes / terms', 'Nuevo gasto': 'New expense', 'Nuevo producto': 'New product',
+    'Otro producto': 'Another product', 'Pago': 'Payment', 'Plantilla': 'Template', 'Posición del logo': 'Logo position', 'Precio': 'Price', 'Precio (IVA incl.)': 'Price (tax incl.)',
+    'Precio de venta (IVA incl.)': 'Sale price (tax incl.)', 'Primero crea productos en Inventario.': 'Create products in Inventory first.', 'Producto': 'Product',
+    'Producto de ejemplo': 'Sample product', 'Producto guardado': 'Product saved', 'Productos': 'Products', 'Productos por reponer': 'Products to restock', 'Punto de Venta': 'Point of Sale',
+    'Quitar': 'Remove', 'Quitar uno': 'Remove one', 'Rentabilidad por producto': 'Profitability by product', 'Restablecer diseño': 'Reset design', 'Resumen Diario': 'Daily Summary',
+    'SKU / Código': 'SKU / Code', 'Sin gastos en este periodo.': 'No expenses in this period.', 'Sin logo': 'No logo', 'Sin resultados.': 'No results.',
+    'Sin ventas en este periodo.': 'No sales in this period.', 'Stock actual': 'Current stock', 'Stock mínimo (alerta)': 'Minimum stock (alert)', 'Subir logo': 'Upload logo',
+    'Símbolo de moneda': 'Currency symbol', 'TOTAL': 'TOTAL', 'TOTAL A COBRAR': 'TOTAL DUE', 'Tema': 'Theme', 'Texto bajo el encabezado': 'Text under the header',
+    'Ticket en curso': 'Current ticket', 'Ticket vacío': 'Empty ticket', 'Tickets': 'Tickets', 'Todo el historial': 'All history', 'Todo en orden.': 'All good.', 'Total': 'Total',
+    'Título del documento': 'Document title', 'Unidades': 'Units', 'Vaciar ticket': 'Clear ticket', 'Valor inventario (costo)': 'Inventory value (cost)',
+    'Venta registrada: {n}': 'Sale recorded: {n}', 'Ventas': 'Sales', 'Ventas & Facturas': 'Sales & Invoices', 'Ventas de hoy': "Today's sales", 'Ventas totales': 'Total sales',
+    'Vista previa': 'Preview', 'Vista previa de la factura': 'Invoice preview', 'a declarar': 'to be declared', 'bajo mínimo o agotados': 'below minimum or out of stock',
+    'facturado': 'invoiced', 'importes sin IVA': 'amounts excl. tax', 'según costo de compra': 'based on purchase cost', 'ud': 'unit', '{n} categorías': '{n} categories',
+    '{n} facturas': '{n} invoices', '{n} facturas emitidas': '{n} invoices issued', '{n} gastos registrados': '{n} expenses recorded', '{n} productos': '{n} products',
+    '{n} tickets': '{n} tickets', '{n} uds': '{n} units', '¿Eliminar "{n}"? Las facturas ya emitidas no cambian.': 'Delete "{n}"? Invoices already issued will not change.',
+    '¿Eliminar el gasto "{n}"?': 'Delete the expense "{n}"?', 'Últimas ventas': 'Latest sales',
+    'El nombre es obligatorio.': 'Name is required.', 'El SKU es obligatorio.': 'SKU is required.', 'Ya existe un producto con ese SKU.': 'A product with that SKU already exists.',
+    'Precio de venta no válido.': 'Invalid sale price.', 'Costo no válido.': 'Invalid cost.', 'El stock debe ser un número entero, 0 o mayor.': 'Stock must be a whole number, 0 or more.',
+    'El mínimo debe ser un número entero, 0 o mayor.': 'Minimum must be a whole number, 0 or more.', 'El ticket está vacío.': 'The ticket is empty.',
+    'El producto {n} ya no existe.': 'Product {n} no longer exists.', 'Cantidad no válida para {n}.': 'Invalid quantity for {n}.',
+    'Stock insuficiente de {n} (quedan {s}).': 'Not enough stock of {n} ({s} left).', 'El concepto es obligatorio.': 'Description is required.',
+    'Fecha no válida.': 'Invalid date.', 'El importe debe ser mayor que 0.': 'Amount must be greater than 0.', 'Categoría no válida.': 'Invalid category.',
+    // Valores que se guardan en español y se traducen al mostrarlos
+    'Óptimo': 'Optimal', 'Stock bajo': 'Low stock', 'Agotado': 'Out of stock', 'Mes anterior': 'Last month', 'Este año': 'This year', 'Todo': 'All',
+    'Efectivo': 'Cash', 'Tarjeta': 'Card', 'Transferencia': 'Bank transfer', 'Domiciliación': 'Direct debit', 'Oscuro': 'Dark', 'Claro': 'Light',
+    'Clásica': 'Classic', 'Moderna': 'Modern', 'Minimalista': 'Minimal', 'Izquierda': 'Left', 'Centro': 'Center', 'Derecha': 'Right',
+    'Usar imágenes en los productos': 'Use product images', 'Mostrar logo': 'Show logo', 'Mostrar SKU': 'Show SKU', 'Mostrar método de pago': 'Show payment method',
+    'Mercancía / Proveedores': 'Goods / Suppliers', 'Local y alquiler': 'Premises & rent', 'Suministros': 'Utilities', 'Sueldos': 'Salaries',
+    'Logística y envíos': 'Logistics & shipping', 'Software y herramientas': 'Software & tools', 'Impuestos y tasas': 'Taxes & fees', 'Otros': 'Other',
+  },
+};
+
+let idiomaActual = 'es';
+const fijarIdioma = (idioma) => (idiomaActual = idioma);
+
+function t(texto, params = {}) {
+  const traducido = TRADUCCIONES[idiomaActual]?.[texto] ?? texto;
+  return traducido.replace(/\{(\w+)\}/g, (_, k) => params[k]);
+}
+
+if (typeof module !== 'undefined') module.exports = { TRADUCCIONES, t, fijarIdioma };

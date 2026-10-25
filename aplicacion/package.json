@@ -1,14 +1,14 @@
 {
   "name": "apex-ledger",
   "productName": "ApexLedger",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Administración para pymes: productos, inventario, ventas, facturas y exportación a Excel.",
   "main": "main.js",
   "author": "ApexLedger",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "test": "node --test src/logica.test.js",
+    "test": "node --test src/logica.test.js src/idiomas.test.js",
     "build:win": "electron-builder --win portable --x64",
     "build:win:linux": "electron-builder --win portable --x64 -c.win.signAndEditExecutable=false"
   },

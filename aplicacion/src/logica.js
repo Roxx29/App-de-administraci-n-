@@ -9,13 +9,29 @@ const diaLocal = (d) => {
   return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
 };
 
+// Los mensajes se escriben en español y la pantalla los traduce con fijarTraductor().
+let tr = (texto, p = {}) => texto.replace(/\{(\w+)\}/g, (_, k) => p[k]);
+const fijarTraductor = (fn) => (tr = fn);
+
+const facturaInicial = () => ({
+  titulo: 'FACTURA SIMPLIFICADA', color: '#b45309', plantilla: 'clasica', logoPos: 'izquierda',
+  mostrarLogo: true, mostrarSku: true, mostrarMetodo: true, cabecera: '', pie: 'Gracias por su compra.', notas: '',
+});
+
 const datosIniciales = () => ({
-  ajustes: { negocio: 'Mi Negocio', nif: '', direccion: '', moneda: '€', iva: 21 },
+  ajustes: { negocio: 'Mi Negocio', nif: '', direccion: '', moneda: '€', iva: 21, tema: 'oscuro', idioma: 'es', imagenes: false, logo: '', factura: facturaInicial() },
   productos: [],
   ventas: [],
   gastos: [],
   secuencia: 0,
 });
+
+// Completa con valores por defecto los datos guardados por versiones anteriores.
+function normalizar(guardados) {
+  const ini = datosIniciales();
+  const g = guardados || {};
+  return { ...ini, ...g, ajustes: { ...ini.ajustes, ...g.ajustes, factura: { ...ini.ajustes.factura, ...g.ajustes?.factura } } };
+}
 
 function aCentimos(texto) {
   const limpio = String(texto).trim().replace(/\s/g, '').replace(',', '.');
@@ -23,19 +39,19 @@ function aCentimos(texto) {
   return Math.round(Number(limpio) * 100);
 }
 
-function formatoDinero(centimos, moneda = '€') {
-  const n = (centimos / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatoDinero(centimos, moneda = '€', locale = 'es-ES') {
+  const n = (centimos / 100).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return `${moneda}${n}`;
 }
 
 function validarProducto(p, productos) {
-  if (!p.nombre.trim()) return 'El nombre es obligatorio.';
-  if (!p.sku.trim()) return 'El SKU es obligatorio.';
-  if (productos.some((o) => o.id !== p.id && o.sku.toLowerCase() === p.sku.trim().toLowerCase())) return 'Ya existe un producto con ese SKU.';
-  if (!Number.isInteger(p.precio) || p.precio < 0) return 'Precio de venta no válido.';
-  if (!Number.isInteger(p.costo) || p.costo < 0) return 'Costo no válido.';
-  if (!Number.isInteger(p.stock) || p.stock < 0) return 'El stock debe ser un número entero, 0 o mayor.';
-  if (!Number.isInteger(p.minimo) || p.minimo < 0) return 'El mínimo debe ser un número entero, 0 o mayor.';
+  if (!p.nombre.trim()) return tr('El nombre es obligatorio.');
+  if (!p.sku.trim()) return tr('El SKU es obligatorio.');
+  if (productos.some((o) => o.id !== p.id && o.sku.toLowerCase() === p.sku.trim().toLowerCase())) return tr('Ya existe un producto con ese SKU.');
+  if (!Number.isInteger(p.precio) || p.precio < 0) return tr('Precio de venta no válido.');
+  if (!Number.isInteger(p.costo) || p.costo < 0) return tr('Costo no válido.');
+  if (!Number.isInteger(p.stock) || p.stock < 0) return tr('El stock debe ser un número entero, 0 o mayor.');
+  if (!Number.isInteger(p.minimo) || p.minimo < 0) return tr('El mínimo debe ser un número entero, 0 o mayor.');
   return null;
 }
 
@@ -58,13 +74,13 @@ function numeroFactura(anio, n) {
 
 // Devuelve datos nuevos con la venta registrada y el stock descontado; lanza error si no hay stock.
 function registrarVenta(datos, lineas, { metodo, cliente, fecha = new Date() }) {
-  if (!lineas.length) throw new Error('El ticket está vacío.');
+  if (!lineas.length) throw new Error(tr('El ticket está vacío.'));
   const productos = datos.productos.map((p) => ({ ...p }));
   for (const l of lineas) {
     const p = productos.find((x) => x.id === l.productoId);
-    if (!p) throw new Error(`El producto ${l.nombre} ya no existe.`);
-    if (!Number.isInteger(l.cantidad) || l.cantidad <= 0) throw new Error(`Cantidad no válida para ${p.nombre}.`);
-    if (p.stock < l.cantidad) throw new Error(`Stock insuficiente de ${p.nombre} (quedan ${p.stock}).`);
+    if (!p) throw new Error(tr('El producto {n} ya no existe.', { n: l.nombre }));
+    if (!Number.isInteger(l.cantidad) || l.cantidad <= 0) throw new Error(tr('Cantidad no válida para {n}.', { n: p.nombre }));
+    if (p.stock < l.cantidad) throw new Error(tr('Stock insuficiente de {n} (quedan {s}).', { n: p.nombre, s: p.stock }));
     p.stock -= l.cantidad;
   }
   const secuencia = datos.secuencia + 1;
@@ -73,7 +89,7 @@ function registrarVenta(datos, lineas, { metodo, cliente, fecha = new Date() }) 
     id: `v${secuencia}`,
     numero: numeroFactura(fecha.getFullYear(), secuencia),
     fecha: fecha.toISOString(),
-    cliente: cliente || 'Cliente mostrador',
+    cliente: cliente || tr('Cliente mostrador'),
     metodo,
     iva: datos.ajustes.iva,
     // Se guarda el costo del momento para calcular la rentabilidad aunque luego cambie.
@@ -98,10 +114,10 @@ function resumen(datos, hoy = new Date()) {
 }
 
 function validarGasto(g) {
-  if (!g.concepto.trim()) return 'El concepto es obligatorio.';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(g.fecha)) return 'Fecha no válida.';
-  if (!Number.isInteger(g.importe) || g.importe <= 0) return 'El importe debe ser mayor que 0.';
-  if (!CATEGORIAS_GASTO.includes(g.categoria)) return 'Categoría no válida.';
+  if (!g.concepto.trim()) return tr('El concepto es obligatorio.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(g.fecha)) return tr('Fecha no válida.');
+  if (!Number.isInteger(g.importe) || g.importe <= 0) return tr('El importe debe ser mayor que 0.');
+  if (!CATEGORIAS_GASTO.includes(g.categoria)) return tr('Categoría no válida.');
   return null;
 }
 
@@ -144,17 +160,17 @@ function informe(datos, desde, hasta) {
 }
 
 // Ingresos y costes (mercancía vendida + gastos) de los últimos `meses` meses.
-function serieMensual(datos, meses, hoy = new Date()) {
+function serieMensual(datos, meses, hoy = new Date(), locale = 'es-ES') {
   const serie = [];
   for (let i = meses - 1; i >= 0; i--) {
     const ini = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
     const fin = new Date(hoy.getFullYear(), hoy.getMonth() - i + 1, 0);
     const r = informe(datos, diaLocal(ini), diaLocal(fin));
-    serie.push({ mes: ini.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }), ingresos: r.ingresos, costes: r.cogs + r.gastos, beneficio: r.beneficio });
+    serie.push({ mes: ini.toLocaleDateString(locale, { month: 'short', year: '2-digit' }), ingresos: r.ingresos, costes: r.cogs + r.gastos, beneficio: r.beneficio });
   }
   return serie;
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { datosIniciales, aCentimos, formatoDinero, validarProducto, estadoStock, totalesTicket, numeroFactura, registrarVenta, resumen, CATEGORIAS_GASTO, diaLocal, validarGasto, informe, serieMensual };
+  module.exports = { fijarTraductor, normalizar, facturaInicial, datosIniciales, aCentimos, formatoDinero, validarProducto, estadoStock, totalesTicket, numeroFactura, registrarVenta, resumen, CATEGORIAS_GASTO, diaLocal, validarGasto, informe, serieMensual };
 }

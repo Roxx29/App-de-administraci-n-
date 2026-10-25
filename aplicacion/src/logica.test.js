@@ -67,3 +67,20 @@ test('validarGasto', () => {
   assert.match(L.validarGasto({ ...g, importe: 0 }), /importe/);
   assert.match(L.validarGasto({ ...g, categoria: 'x' }), /Categoría/);
 });
+
+test('normalizar completa ajustes nuevos sin perder los guardados', () => {
+  const d = L.normalizar({ ajustes: { negocio: 'Tienda', moneda: '$', iva: 18 }, productos: [prod()], ventas: [], secuencia: 3 });
+  assert.strictEqual(d.ajustes.negocio, 'Tienda');
+  assert.strictEqual(d.ajustes.tema, 'oscuro');
+  assert.strictEqual(d.ajustes.factura.plantilla, 'clasica');
+  assert.deepStrictEqual(d.gastos, []);
+  assert.strictEqual(d.secuencia, 3);
+  assert.strictEqual(L.normalizar(null).ajustes.idioma, 'es');
+});
+
+test('el traductor se aplica a los mensajes con parámetros', () => {
+  L.fijarTraductor((s, p = {}) => (s === 'Stock insuficiente de {n} (quedan {s}).' ? `Not enough ${p.n} (${p.s} left).` : s));
+  const datos = { ...L.datosIniciales(), productos: [prod({ stock: 1 })] };
+  assert.throws(() => L.registrarVenta(datos, [{ productoId: 'p1', nombre: 'Lámpara', precio: 1, cantidad: 2 }], { metodo: 'x' }), /Not enough Lámpara \(1 left\)/);
+  L.fijarTraductor((s, p = {}) => s.replace(/\{(\w+)\}/g, (_, k) => p[k]));
+});

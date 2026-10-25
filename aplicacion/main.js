@@ -142,14 +142,16 @@ async function sincronizar() {
   }
 }
 
-// Al entrar con otra cuenta, los datos de la anterior se apartan para no mezclarlos ni subirlos a la cuenta nueva.
+// Cada cuenta tiene sus propios datos en este equipo: al cambiar de cuenta se apartan los de la anterior
+// (con sus cambios pendientes de subir) y se recuperan los de la nueva si ya entró antes aquí.
 function activarUsuario(u) {
   usuario = { id: u.id, email: u.email };
   if (estadoSync.usuario && estadoSync.usuario !== u.id) {
-    fs.copyFileSync(ruta('datos.json'), ruta(`datos-${estadoSync.usuario}.json`));
-    actual = normalizar(null);
+    escribirJson(`datos-${estadoSync.usuario}.json`, actual);
+    escribirJson(`sync-${estadoSync.usuario}.json`, estadoSync);
+    actual = normalizar(leerJson(`datos-${u.id}.json`));
+    estadoSync = { ...S.estadoInicial(), ...leerJson(`sync-${u.id}.json`) };
     escribirJson('datos.json', actual);
-    estadoSync = S.estadoInicial();
     avisarPantalla('datos:remotos', entregar());
   }
   estadoSync.usuario = u.id;
@@ -183,6 +185,7 @@ const cuenta = {
     return { email: data.user.email };
   },
   async salir() {
+    await sincronizar(); // último intento de subir lo pendiente
     await cliente.auth.signOut({ scope: 'local' });
     usuario = null;
     return true;

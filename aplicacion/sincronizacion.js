@@ -22,11 +22,6 @@ function diferencias(antes, despues) {
   return cambios;
 }
 
-// El número de factura sigue al mayor ya usado, aunque venga de otro equipo.
-function secuenciaDe(datos) {
-  return Math.max(datos.secuencia || 0, ...datos.ventas.map((v) => Number(String(v.numero).split('-').pop()) || 0));
-}
-
 function aplicar(datos, cambios) {
   const listas = { producto: [...datos.productos], venta: [...datos.ventas], gasto: [...(datos.gastos || [])] };
   let ajustes = datos.ajustes;
@@ -43,8 +38,7 @@ function aplicar(datos, cambios) {
     else lista.push(c.datos);
   }
   listas.venta.sort((x, y) => x.fecha.localeCompare(y.fecha));
-  const nuevos = { ...datos, ajustes, productos: listas.producto, ventas: listas.venta, gastos: listas.gasto };
-  return { ...nuevos, secuencia: secuenciaDe(nuevos) };
+  return { ...datos, ajustes, productos: listas.producto, ventas: listas.venta, gastos: listas.gasto };
 }
 
 const estadoInicial = () => ({ usuario: null, cursor: null, pendientes: {}, versiones: {} });
@@ -88,4 +82,4 @@ function fusionarRemotos(datos, estado, filas) {
   return { datos: cambios.length ? aplicar(datos, cambios) : datos, estado: { ...estado, versiones, pendientes, cursor }, hubo: cambios.length > 0 };
 }
 
-module.exports = { registrosDe, diferencias, aplicar, secuenciaDe, estadoInicial, anotarPendientes, quitarSubidos, fusionarRemotos };
+module.exports = { registrosDe, diferencias, aplicar, estadoInicial, anotarPendientes, quitarSubidos, fusionarRemotos };

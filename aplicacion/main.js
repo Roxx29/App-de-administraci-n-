@@ -95,15 +95,83 @@ function programarSync(ms) {
   temporizador = setTimeout(sincronizar, ms);
 }
 
+const miembro = () => estadoSync.miembro || { empresa: usuario?.id, rol: 'admin', serie: '' };
+const esTrabajador = () => miembro().rol === 'trabajador';
+
+// Empresa, rol y serie de esta persona. Si cambian (la invitaron, la quitaron o le cambiaron el rol) se ajustan los datos locales.
+async function actualizarMiembro() {
+  const { data, error } = await cliente.rpc('entrar_empresa');
+  // Sin la migración 002 aplicada, cada cuenta sigue siendo su propia empresa.
+  if (error?.code === 'PGRST202') return;
+  if (error) throw error;
+  const nuevo = { empresa: data[0].empresa_id, rol: data[0].rol, serie: data[0].serie };
+  const antes = estadoSync.miembro;
+  if (antes && antes.empresa !== nuevo.empresa) {
+    // Otra empresa: lo local de la anterior no se mezcla ni se sube aquí.
+    actual = normalizar(null);
+    estadoSync = { ...S.estadoInicial(), usuario: usuario.id };
+    escribirJson('datos.json', actual);
+    avisarPantalla('datos:remotos', entregar());
+  } else if (antes && antes.rol !== nuevo.rol) {
+    // Cambió el rol: se vuelve a bajar todo con los permisos nuevos (un trabajador deja de tener los gastos).
+    estadoSync = { ...estadoSync, cursor: null, versiones: {} };
+    if (nuevo.rol === 'trabajador') {
+      actual = { ...actual, gastos: [] };
+      escribirJson('datos.json', actual);
+      avisarPantalla('datos:remotos', entregar());
+    }
+  }
+  estadoSync = { ...estadoSync, miembro: nuevo };
+  if (JSON.stringify(antes) !== JSON.stringify(nuevo)) avisarPantalla('cuenta:cambio', cuenta.estado());
+}
+
+// Las ventas solo se insertan (nunca se reescriben); lo demás se actualiza si es más nuevo.
+async function subirLote(lote) {
+  const fila = (p) => ({ owner_id: miembro().empresa, tipo: p.tipo, id: p.id, datos: p.datos, borrado: p.borrado, actualizado: p.actualizado });
+  const ventas = lote.filter((p) => p.tipo === 'venta').map(fila);
+  const otros = lote.filter((p) => p.tipo !== 'venta').map(fila);
+  const r1 = ventas.length ? await cliente.from('registros').upsert(ventas, { onConflict: 'owner_id,tipo,id', ignoreDuplicates: true }) : {};
+  const r2 = otros.length ? await cliente.from('registros').upsert(otros, { onConflict: 'owner_id,tipo,id' }) : {};
+  return r1.error || r2.error;
+}
+
+async function subirPendientes() {
+  // Un trabajador solo puede subir ventas: otros cambios se descartan y se recupera la versión del servidor.
+  if (esTrabajador() && Object.values(estadoSync.pendientes).some((p) => p.tipo !== 'venta')) {
+    const pendientes = Object.fromEntries(Object.entries(estadoSync.pendientes).filter(([, p]) => p.tipo === 'venta'));
+    estadoSync = { ...estadoSync, pendientes, cursor: null, versiones: {} };
+  }
+  const subir = Object.values(estadoSync.pendientes);
+  for (let i = 0; i < subir.length; i += 200) {
+    const lote = subir.slice(i, i + 200);
+    const error = await subirLote(lote);
+    if (!error) {
+      estadoSync = S.quitarSubidos(estadoSync, lote);
+      continue;
+    }
+    if (error.code !== '42501') throw error;
+    // Permiso denegado: se prueba fila a fila. Lo rechazado se descarta (salvo ventas, que nunca se pierden).
+    for (const p of lote) {
+      const e = await subirLote([p]);
+      if (!e) estadoSync = S.quitarSubidos(estadoSync, [p]);
+      else if (e.code === '42501' && p.tipo !== 'venta') {
+        const pendientes = { ...estadoSync.pendientes };
+        delete pendientes[`${p.tipo}:${p.id}`];
+        estadoSync = { ...estadoSync, pendientes, cursor: null, versiones: {} };
+      } else if (e.code !== '42501') throw e;
+    }
+  }
+}
+
 async function bajarCambios() {
   for (;;) {
     const { data, error } = await cliente.from('registros').select('tipo,id,datos,borrado,actualizado,recibido')
-      .eq('owner_id', usuario.id).gte('recibido', estadoSync.cursor || '1970-01-01T00:00:00Z').order('recibido').limit(1000);
+      .eq('owner_id', miembro().empresa).gte('recibido', estadoSync.cursor || '1970-01-01T00:00:00Z').order('recibido').limit(1000);
     if (error) throw error;
     const r = S.fusionarRemotos(actual, estadoSync, data);
     estadoSync = r.estado;
     if (r.hubo) {
-      actual = r.datos;
+      actual = normalizar(r.datos);
       escribirJson('datos.json', actual);
       avisarPantalla('datos:remotos', entregar());
     }
@@ -116,18 +184,13 @@ async function sincronizar() {
   sincronizando = true;
   avisarPantalla('sync:estado', { estado: 'sincronizando', pendientes: contarPendientes() });
   try {
-    const subir = Object.values(estadoSync.pendientes);
-    for (let i = 0; i < subir.length; i += 200) {
-      const lote = subir.slice(i, i + 200);
-      const filas = lote.map((p) => ({ owner_id: usuario.id, tipo: p.tipo, id: p.id, datos: p.datos, borrado: p.borrado, actualizado: p.actualizado }));
-      const { error } = await cliente.from('registros').upsert(filas, { onConflict: 'owner_id,tipo,id' });
-      if (error) throw error;
-      estadoSync = S.quitarSubidos(estadoSync, lote);
-    }
+    await actualizarMiembro();
+    await subirPendientes();
     await bajarCambios();
     // Primera vez en esta cuenta: lo que solo existe en este equipo se sube (lo de la nube ya se bajó y manda).
     if (!estadoSync.vinculado) {
-      const locales = [...S.registrosDe(actual).entries()].filter(([k]) => !estadoSync.versiones[k]).map(([, r]) => r);
+      const locales = [...S.registrosDe(actual).entries()]
+        .filter(([k, r]) => !estadoSync.versiones[k] && (!esTrabajador() || r.tipo === 'venta')).map(([, r]) => r);
       estadoSync = { ...S.anotarPendientes(estadoSync, locales), vinculado: true };
       if (locales.length) programarSync(0);
     }
@@ -170,7 +233,7 @@ const MENSAJES_ACCESO = [
 const mensajeAcceso = (e) => (MENSAJES_ACCESO.find(([re]) => re.test(e.message)) || [null, e.message])[1];
 
 const cuenta = {
-  estado: () => ({ configurado: !!config, email: usuario?.email ?? null }),
+  estado: () => ({ configurado: !!config, email: usuario?.email ?? null, rol: usuario ? miembro().rol : 'admin', serie: usuario ? miembro().serie : '' }),
   async entrar(_e, { email, clave }) {
     const { data, error } = await cliente.auth.signInWithPassword({ email, password: clave });
     if (error) return { error: mensajeAcceso(error) };
@@ -191,6 +254,27 @@ const cuenta = {
     return true;
   },
   pendientes: () => contarPendientes(),
+};
+
+// ---------- Equipo (solo con conexión; la seguridad la aplica el servidor) ----------
+const respuesta = async (promesa) => {
+  const { data, error } = await promesa;
+  return error ? { error: error.message } : { data };
+};
+const equipo = {
+  async listar() {
+    const m = await respuesta(cliente.from('miembros').select('user_id,email,rol,serie').order('email'));
+    if (m.error) return m;
+    const inv = esTrabajador() ? { data: [] } : await respuesta(cliente.from('invitaciones').select('email,rol,expira').order('email'));
+    return inv.error ? inv : { miembros: m.data, invitaciones: inv.data, yo: usuario.id };
+  },
+  invitar: (_e, { email, rol }) => respuesta(cliente.rpc('invitar', { p_email: email, p_rol: rol })),
+  cancelar: (_e, email) => respuesta(cliente.rpc('cancelar_invitacion', { p_email: email })),
+  async cambiar(_e, { userId, rol }) {
+    const r = await respuesta(cliente.rpc('cambiar_miembro', { p_user: userId, p_rol: rol }));
+    if (!r.error && userId === usuario.id) programarSync(0); // si me cambio el rol a mí, se aplica ya
+    return r;
+  },
 };
 
 async function iniciarSupabase() {
@@ -262,6 +346,10 @@ ipcMain.handle('cuenta:registrar', cuenta.registrar);
 ipcMain.handle('cuenta:salir', cuenta.salir);
 ipcMain.handle('cuenta:pendientes', cuenta.pendientes);
 ipcMain.handle('sync:ahora', () => sincronizar());
+ipcMain.handle('equipo:listar', equipo.listar);
+ipcMain.handle('equipo:invitar', equipo.invitar);
+ipcMain.handle('equipo:cancelar', equipo.cancelar);
+ipcMain.handle('equipo:cambiar', equipo.cambiar);
 ipcMain.handle('excel:exportar', (e, args) => exportarExcel(BrowserWindow.fromWebContents(e.sender), args));
 ipcMain.handle('factura:pdf', (e, args) => facturaPdf(BrowserWindow.fromWebContents(e.sender), args));
 

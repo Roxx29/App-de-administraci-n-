@@ -144,6 +144,7 @@ legend { font: 600 13px var(--sans); color: var(--texto); padding: 0; margin-bot
 ::selection { background: color-mix(in srgb, var(--primario) 35%, transparent); }
 /* Acceso */
 body.sin-sesion > aside, body.sin-sesion > main { display: none; }
+#acceso[hidden] { display: none; }
 #acceso { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .acceso-caja { width: min(380px, 100%); background: var(--panel); border: 1px solid var(--borde); border-radius: 14px; padding: 28px; box-shadow: 0 12px 40px #0004; }
 .acceso-caja .marca { margin-bottom: 22px; }
@@ -154,3 +155,11 @@ button.enlace { background: none; border: 0; padding: 0; color: var(--primario-c
 .cuenta-linea { display: flex; flex-direction: column; gap: 2px; margin: 0 0 12px; }
 .cuenta-linea small { color: var(--suave); font-size: 11px; }
 .estado-local.bajo { color: var(--primario-claro); } .estado-local.agotado { color: var(--peligro); }
+/* Equipo */
+.solo-preferencias { grid-template-columns: minmax(320px, 520px); }
+.tabla-equipo { margin: 10px 0 14px; }
+.tabla-equipo td { padding: 8px 6px; }
+.tabla-equipo select { width: auto; padding: 5px 8px; }
+.tabla-equipo tr.pendiente td { color: var(--suave); }
+.invitar { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; margin-bottom: 6px; }
+.invitar select { width: auto; }

@@ -2,7 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert');
 const L = require('./logica.js');
 
-const prod = (o) => ({ id: 'p1', sku: 'SKU-1', nombre: 'Lámpara', categoria: '', costo: 1850, precio: 4625, stock: 5, minimo: 2, ...o });
+const prod = (o) => ({ id: 'p1', sku: 'SKU-1', nombre: 'Lámpara', categoria: '', costo: 1850, precio: 4625, stockBase: 5, stockFecha: '2000-01-01T00:00:00.000Z', minimo: 2, ...o });
+const conStockDe = (o) => ({ ...prod(o), stock: o?.stock ?? prod(o).stockBase });
 
 test('aCentimos acepta coma y punto, rechaza basura', () => {
   assert.strictEqual(L.aCentimos('46,25'), 4625);
@@ -23,27 +24,28 @@ test('totales desglosan IVA incluido y cuadran', () => {
 test('registrarVenta descuenta stock y numera la factura', () => {
   const datos = { ...L.datosIniciales(), productos: [prod()] };
   const { datos: d2, venta } = L.registrarVenta(datos, [{ productoId: 'p1', sku: 'SKU-1', nombre: 'Lámpara', precio: 4625, cantidad: 2 }], { metodo: 'Efectivo', fecha: new Date('2026-10-25T10:00:00Z') });
-  assert.strictEqual(d2.productos[0].stock, 3);
-  assert.strictEqual(datos.productos[0].stock, 5, 'no muta los datos originales');
+  assert.strictEqual(L.conStock(d2).productos[0].stock, 3);
+  assert.strictEqual(datos.ventas.length, 0, 'no muta los datos originales');
+  assert.strictEqual(d2.productos[0].stockBase, 5, 'la venta no reescribe el producto');
   assert.strictEqual(venta.numero, 'FAC-2026-0001');
   assert.strictEqual(venta.total, 9250);
 });
 
 test('registrarVenta rechaza stock insuficiente y ticket vacío', () => {
-  const datos = { ...L.datosIniciales(), productos: [prod({ stock: 1 })] };
+  const datos = { ...L.datosIniciales(), productos: [prod({ stockBase: 1 })] };
   assert.throws(() => L.registrarVenta(datos, [{ productoId: 'p1', nombre: 'Lámpara', precio: 1, cantidad: 2 }], { metodo: 'Efectivo' }), /Stock insuficiente/);
   assert.throws(() => L.registrarVenta(datos, [], { metodo: 'Efectivo' }), /vacío/);
 });
 
 test('validarProducto detecta SKU duplicado y estado de stock', () => {
-  assert.match(L.validarProducto(prod({ id: 'p2' }), [prod()]), /SKU/);
-  assert.strictEqual(L.validarProducto(prod(), [prod()]), null);
-  assert.strictEqual(L.estadoStock(prod({ stock: 0 })), 'agotado');
-  assert.strictEqual(L.estadoStock(prod({ stock: 2 })), 'bajo');
+  assert.match(L.validarProducto(conStockDe({ id: 'p2' }), [prod()]), /SKU/);
+  assert.strictEqual(L.validarProducto(conStockDe(), [prod()]), null);
+  assert.strictEqual(L.estadoStock(conStockDe({ stock: 0 })), 'agotado');
+  assert.strictEqual(L.estadoStock(conStockDe({ stock: 2 })), 'bajo');
 });
 
 test('informe calcula rentabilidad con costo histórico y gastos', () => {
-  let datos = { ...L.datosIniciales(), productos: [prod({ stock: 10 })] };
+  let datos = { ...L.datosIniciales(), productos: [prod({ stockBase: 10 })] };
   // 2 uds a 46,25 con IVA 21% → base 76,45; costo 2 × 18,50 = 37,00
   ({ datos } = L.registrarVenta(datos, [{ productoId: 'p1', sku: 'SKU-1', nombre: 'Lámpara', precio: 4625, cantidad: 2 }], { metodo: 'Efectivo', fecha: new Date(2026, 9, 10, 12) }));
   datos.productos[0].costo = 99999; // cambiar el costo después no altera ventas pasadas
@@ -69,18 +71,34 @@ test('validarGasto', () => {
 });
 
 test('normalizar completa ajustes nuevos sin perder los guardados', () => {
-  const d = L.normalizar({ ajustes: { negocio: 'Tienda', moneda: '$', iva: 18 }, productos: [prod()], ventas: [], secuencia: 3 });
+  const viejo = { id: 'p1', sku: 'S', nombre: 'n', costo: 1, precio: 2, stock: 7, minimo: 0 };
+  const d = L.normalizar({ ajustes: { negocio: 'Tienda', moneda: '$', iva: 18 }, productos: [viejo], ventas: [{ fecha: '2026-01-02T00:00:00.000Z', lineas: [{ productoId: 'p1', cantidad: 3 }] }] });
   assert.strictEqual(d.ajustes.negocio, 'Tienda');
-  assert.strictEqual(d.ajustes.tema, 'oscuro');
   assert.strictEqual(d.ajustes.factura.plantilla, 'clasica');
   assert.deepStrictEqual(d.gastos, []);
-  assert.strictEqual(d.secuencia, 3);
-  assert.strictEqual(L.normalizar(null).ajustes.idioma, 'es');
+  assert.strictEqual(d.productos[0].stockBase, 7, 'el stock viejo ya descontado pasa a ser la base');
+  assert.strictEqual(L.conStock(d).productos[0].stock, 7, 'las ventas anteriores no se descuentan dos veces');
+  assert.strictEqual(L.normalizar(null).ajustes.iva, 21);
 });
 
 test('el traductor se aplica a los mensajes con parámetros', () => {
   L.fijarTraductor((s, p = {}) => (s === 'Stock insuficiente de {n} (quedan {s}).' ? `Not enough ${p.n} (${p.s} left).` : s));
-  const datos = { ...L.datosIniciales(), productos: [prod({ stock: 1 })] };
+  const datos = { ...L.datosIniciales(), productos: [prod({ stockBase: 1 })] };
   assert.throws(() => L.registrarVenta(datos, [{ productoId: 'p1', nombre: 'Lámpara', precio: 1, cantidad: 2 }], { metodo: 'x' }), /Not enough Lámpara \(1 left\)/);
   L.fijarTraductor((s, p = {}) => s.replace(/\{(\w+)\}/g, (_, k) => p[k]));
+});
+
+test('ventas de dos equipos sin conexión se suman en el stock', () => {
+  const base = { ...L.datosIniciales(), productos: [prod({ stockBase: 10 })] };
+  const linea = [{ productoId: 'p1', sku: 'SKU-1', nombre: 'Lámpara', precio: 4625, cantidad: 2 }];
+  const a = L.registrarVenta(base, linea, { metodo: 'Efectivo', serie: '' }).venta;
+  const b = L.registrarVenta(base, linea, { metodo: 'Efectivo', serie: 'E2' }).venta;
+  const juntos = { ...base, ventas: [a, b] };
+  assert.strictEqual(L.conStock(juntos).productos[0].stock, 6);
+  assert.notStrictEqual(a.numero, b.numero, 'cada serie numera aparte');
+  assert.match(b.numero, /^FAC-E2-\d{4}-0001$/);
+  // El admin recuenta el stock: las ventas anteriores al recuento ya no se descuentan.
+  const recontado = { ...juntos, productos: [prod({ stockBase: 20, stockFecha: '2999-01-01T00:00:00.000Z' })] };
+  assert.strictEqual(L.conStock(recontado).productos[0].stock, 20);
+  assert.strictEqual(L.siguienteNumero(juntos.ventas, ''), 2);
 });

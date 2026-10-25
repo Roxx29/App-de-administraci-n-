@@ -24,7 +24,6 @@ test('fusionar acepta lo remoto más nuevo e ignora lo viejo', () => {
   assert.strictEqual(r.datos.productos.find((p) => p.id === 'a').stock, 5, 'el cambio local más nuevo se conserva');
   assert.ok(!r.datos.productos.some((p) => p.id === 'b'), 'el borrado remoto se aplica');
   assert.strictEqual(r.datos.ventas.length, 1);
-  assert.strictEqual(r.datos.secuencia, 42, 'la numeración sigue a la factura más alta');
   assert.strictEqual(r.estado.cursor, '2026-10-25T11:00:02Z');
   assert.ok(r.estado.pendientes['producto:a'], 'el pendiente local sigue para subirse');
   // Reaplicar las mismas filas no cambia nada.

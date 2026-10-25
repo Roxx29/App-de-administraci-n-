@@ -1,15 +1,20 @@
-/* global t, fijarIdioma, htmlFactura, fijarTraductor, normalizar, facturaInicial, CATEGORIAS_GASTO, diaLocal, validarGasto, informe, serieMensual, totalesTicket, aCentimos, formatoDinero, validarProducto, estadoStock, registrarVenta, resumen */
+/* global conStock, sinStock, t, fijarIdioma, htmlFactura, fijarTraductor, normalizar, facturaInicial, CATEGORIAS_GASTO, diaLocal, validarGasto, informe, serieMensual, totalesTicket, aCentimos, formatoDinero, validarProducto, estadoStock, registrarVenta, resumen */
 let datos;
 let ticket = []; // líneas del ticket en curso
 let metodoPago = 'Efectivo';
 let periodo = 'mes'; // periodo elegido en Informes
 let rev = 0; // versión de los datos que tiene esta pantalla (ver main.js)
 let cuentaEmail = null;
+let miRol = 'admin'; // 'admin' o 'trabajador' (sin cuenta en la nube, siempre admin)
+let miSerie = '';
+const esAdmin = () => miRol === 'admin';
+// Vistas que ve un trabajador (la seguridad real la aplica el servidor).
+const VISTAS_TRABAJADOR = ['resumen', 'inventario', 'venta', 'ventas', 'ajustes'];
 let ultimoSync = { estado: 'local' };
 
 const $ = (s) => document.querySelector(s);
 const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const locale = () => (datos.ajustes.idioma === 'en' ? 'en-US' : 'es-ES');
+const locale = () => (preferencias().idioma === 'en' ? 'en-US' : 'es-ES');
 const dinero = (c) => formatoDinero(c, datos.ajustes.moneda, locale());
 const decimal = (c) => (c / 100).toFixed(2);
 const fecha = (iso) => new Date(iso).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' });
@@ -29,9 +34,7 @@ function avisar(texto, mal = false) {
 
 async function guardar(nuevos) {
   try {
-    const r = await window.api.guardarDatos({ rev, datos: nuevos });
-    rev = r.rev;
-    datos = normalizar(r.datos);
+    recibir(await window.api.guardarDatos({ rev, datos: sinStock(nuevos) }));
     return true;
   } catch (e) {
     avisar(t('No se pudo guardar: {e}', { e: e.message }), true);
@@ -88,7 +91,7 @@ const vistas = {
   inventario() {
     return `
       <div class="cabecera"><div><h1>${t('Inventario & Catálogo')}</h1><p class="sub">${t('{n} productos', { n: datos.productos.length })}</p></div>
-        <div class="acciones"><button id="exportar-productos">${t('Exportar a Excel')}</button><button class="primario" id="nuevo-producto">${t('+ Nuevo producto')}</button></div></div>
+        <div class="acciones"><button id="exportar-productos">${t('Exportar a Excel')}</button>${esAdmin() ? `<button class="primario" id="nuevo-producto">${t('+ Nuevo producto')}</button>` : ''}</div></div>
       <input class="buscador" id="buscar" placeholder="${t('Buscar por nombre, SKU o categoría…')}" aria-label="${t('Buscar productos')}">
       <div class="panel"><table>
         <thead><tr>${conImagenes() ? '<th></th>' : ''}<th>SKU</th><th>${t('Producto')}</th><th>${t('Categoría')}</th><th class="num">${t('Existencias')}</th><th class="num">${t('Costo')}</th><th class="num">${t('Precio (IVA incl.)')}</th><th class="num">${t('Margen')}</th><th></th></tr></thead>
@@ -172,13 +175,14 @@ const vistas = {
   ajustes() {
     const a = datos.ajustes;
     const f = a.factura;
+    const pref = preferencias();
     const casilla = (nombre, valor, texto) => `<label class="casilla"><input type="checkbox" name="${nombre}" ${valor ? 'checked' : ''}> ${t(texto)}</label>`;
     return `
-      <div class="cabecera"><div><h1>${t('Ajustes')}</h1><p class="sub">${t('Datos del negocio, apariencia y diseño de las facturas.')}</p></div>
+      <div class="cabecera"><div><h1>${t('Ajustes')}</h1><p class="sub">${esAdmin() ? t('Datos del negocio, apariencia y diseño de las facturas.') : t('Apariencia de la app en este equipo y tu cuenta.')}</p></div>
         <div class="acciones"><button class="primario" form="form-ajustes">${t('Guardar ajustes')}</button></div></div>
-      <form id="form-ajustes" class="ajustes">
+      <form id="form-ajustes" class="ajustes ${esAdmin() ? '' : 'solo-preferencias'}">
         <div class="columna">
-          <section class="panel"><h2>${t('Negocio')}</h2>
+          ${esAdmin() ? `<section class="panel"><h2>${t('Negocio')}</h2>
             <label>${t('Nombre del negocio')}<input name="negocio" required value="${esc(a.negocio)}"></label>
             <label>${t('NIF / CIF / RUC')}<input name="nif" value="${esc(a.nif)}"></label>
             <label>${t('Dirección')}<input name="direccion" value="${esc(a.direccion)}"></label>
@@ -192,23 +196,24 @@ const vistas = {
               <div class="acciones"><button type="button" id="elegir-logo">${t('Subir logo')}</button><button type="button" class="peligro" id="quitar-logo" ${a.logo ? '' : 'hidden'}>${t('Quitar')}</button></div>
               <input type="file" id="archivo-logo" accept="image/*" hidden>
             </div>
-          </section>
+          </section>` : ''}
           <section class="panel"><h2>${t('Apariencia')}</h2>
             <div class="dos">
-              <label>${t('Tema')}<select name="tema">${['oscuro', 'claro'].map((v) => `<option value="${v}" ${v === a.tema ? 'selected' : ''}>${t(v === 'oscuro' ? 'Oscuro' : 'Claro')}</option>`).join('')}</select></label>
-              <label>${t('Idioma')}<select name="idioma"><option value="es" ${a.idioma === 'es' ? 'selected' : ''}>Español</option><option value="en" ${a.idioma === 'en' ? 'selected' : ''}>English</option></select></label>
+              <label>${t('Tema')}<select name="tema">${['oscuro', 'claro'].map((v) => `<option value="${v}" ${v === pref.tema ? 'selected' : ''}>${t(v === 'oscuro' ? 'Oscuro' : 'Claro')}</option>`).join('')}</select></label>
+              <label>${t('Idioma')}<select name="idioma"><option value="es" ${pref.idioma === 'es' ? 'selected' : ''}>Español</option><option value="en" ${pref.idioma === 'en' ? 'selected' : ''}>English</option></select></label>
             </div>
           </section>
           ${cuentaEmail ? `<section class="panel"><h2>${t('Cuenta')}</h2>
-            <p class="cuenta-linea"><span>${esc(cuentaEmail)}</span><small id="sync-detalle">${esc(textoSync())}</small></p>
+            <p class="cuenta-linea"><span>${esc(cuentaEmail)} · <b>${t(esAdmin() ? 'Administrador' : 'Trabajador')}</b></span><small id="sync-detalle">${esc(textoSync())}</small></p>
             <div class="acciones"><button type="button" id="sincronizar-ya">${t('Sincronizar ahora')}</button><button type="button" class="peligro" id="cerrar-sesion">${t('Cerrar sesión')}</button></div>
           </section>` : ''}
-          <section class="panel"><h2>${t('Productos')}</h2>
+          ${cuentaEmail && esAdmin() ? `<section class="panel" id="equipo"><h2>${t('Equipo')}</h2><p class="vacio">${t('Cargando…')}</p></section>` : ''}
+          ${esAdmin() ? `<section class="panel"><h2>${t('Productos')}</h2>
             ${casilla('imagenes', a.imagenes, 'Usar imágenes en los productos')}
             <small class="ayuda">${t('Muestra una foto en el inventario y en el punto de venta. Al desactivarlo, las fotos no se borran.')}</small>
-          </section>
+          </section>` : ''}
         </div>
-        <section class="panel columna"><h2>${t('Diseño de factura')}</h2>
+        ${esAdmin() ? `<section class="panel columna"><h2>${t('Diseño de factura')}</h2>
           <div class="dos">
             <label>${t('Plantilla')}<select name="plantilla">${['clasica', 'moderna', 'minimal'].map((v) => `<option value="${v}" ${v === f.plantilla ? 'selected' : ''}>${t({ clasica: 'Clásica', moderna: 'Moderna', minimal: 'Minimalista' }[v])}</option>`).join('')}</select></label>
             <label>${t('Color principal')}<input name="color" type="color" value="${esc(f.color)}"></label>
@@ -221,7 +226,7 @@ const vistas = {
           <div class="casillas">${casilla('mostrarLogo', f.mostrarLogo, 'Mostrar logo')}${casilla('mostrarSku', f.mostrarSku, 'Mostrar SKU')}${casilla('mostrarMetodo', f.mostrarMetodo, 'Mostrar método de pago')}</div>
           <div class="cabecera"><div class="etiqueta-campo">${t('Vista previa')}</div><button type="button" id="restablecer-factura">${t('Restablecer diseño')}</button></div>
           <iframe id="vista-factura" title="${t('Vista previa de la factura')}" sandbox></iframe>
-        </section>
+        </section>` : ''}
       </form>`;
   },
 };
@@ -239,11 +244,11 @@ const alMontar = {
         return `<tr>${conImagenes() ? `<td>${miniatura(p, 'mini')}</td>` : ''}<td class="mono">${esc(p.sku)}</td><td>${esc(p.nombre)}</td><td>${esc(p.categoria)}</td>
           <td class="num"><span class="chip ${est}">${t('{n} uds', { n: p.stock })} · ${t(ESTADOS[est])}</span></td>
           <td class="num">${dinero(p.costo)}</td><td class="num">${dinero(p.precio)}</td><td class="num">${margen}%</td>
-          <td class="num"><button data-editar="${p.id}">${t('Editar')}</button></td></tr>`;
+          <td class="num">${esAdmin() ? `<button data-editar="${p.id}">${t('Editar')}</button>` : ''}</td></tr>`;
       }).join('') : `<tr><td colspan="9" class="vacio">${datos.productos.length ? t('Sin resultados.') : t('Aún no hay productos. Crea el primero con “+ Nuevo producto”.')}</td></tr>`;
     };
     $('#buscar').oninput = pintar;
-    $('#nuevo-producto').onclick = () => formularioProducto();
+    if (esAdmin()) $('#nuevo-producto').onclick = () => formularioProducto();
     $('#filas').onclick = (e) => e.target.dataset.editar && formularioProducto(datos.productos.find((p) => p.id === e.target.dataset.editar));
     $('#exportar-productos').onclick = () => exportar(t('Productos'), ['SKU', t('Producto'), t('Categoría'), 'Stock', t('Mínimo'), t('Costo'), t('Precio')],
       datos.productos.map((p) => [p.sku, p.nombre, p.categoria, p.stock, p.minimo, p.costo / 100, p.precio / 100]));
@@ -300,7 +305,7 @@ const alMontar = {
       else if (e.target.id === 'vaciar') ticket = [];
       else if (e.target.id === 'cobrar') {
         try {
-          const r = registrarVenta(datos, ticket, { metodo: metodoPago, cliente: pintarTicket.cliente });
+          const r = registrarVenta(datos, ticket, { metodo: metodoPago, cliente: pintarTicket.cliente, serie: miSerie });
           if (!(await guardar(r.datos))) return;
           ticket = [];
           pintarTicket.cliente = '';
@@ -355,12 +360,13 @@ const alMontar = {
   ajustes() {
     const form = $('#form-ajustes');
     let logo = datos.ajustes.logo;
+    if (cuentaEmail && esAdmin()) pintarEquipo();
     const leerForm = () => {
       const f = Object.fromEntries(new FormData(form));
       const marcado = (n) => form.elements[n].checked;
       return {
         negocio: f.negocio.trim(), nif: f.nif.trim(), direccion: f.direccion.trim(), moneda: f.moneda.trim(), iva: Number(f.iva),
-        tema: f.tema, idioma: f.idioma, imagenes: marcado('imagenes'), logo,
+        imagenes: marcado('imagenes'), logo,
         factura: {
           titulo: f.titulo.trim(), color: f.color, plantilla: f.plantilla, logoPos: f.logoPos,
           mostrarLogo: marcado('mostrarLogo'), mostrarSku: marcado('mostrarSku'), mostrarMetodo: marcado('mostrarMetodo'),
@@ -368,8 +374,8 @@ const alMontar = {
         },
       };
     };
-    const previa = () => ($('#vista-factura').srcdoc = factura(ventaEjemplo(), leerForm()));
-    form.oninput = previa;
+    const previa = () => esAdmin() && ($('#vista-factura').srcdoc = factura(ventaEjemplo(), leerForm()));
+    form.oninput = (e) => e.target.closest('#equipo') || previa();
     if (cuentaEmail) {
       $('#sincronizar-ya').onclick = () => window.api.sincronizarAhora();
       $('#cerrar-sesion').onclick = async () => {
@@ -380,6 +386,19 @@ const alMontar = {
         mostrarAcceso();
       };
     }
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      guardarPreferencias({ tema: form.elements.tema.value, idioma: form.elements.idioma.value });
+      if (esAdmin()) {
+        const nuevos = leerForm();
+        if (!Number.isInteger(nuevos.iva) || nuevos.iva < 0 || nuevos.iva > 100) return avisar(t('IVA no válido.'), true);
+        if (!(await guardar({ ...datos, ajustes: nuevos }))) return;
+      }
+      aplicarAjustes();
+      ir();
+      avisar(t('Ajustes guardados'));
+    };
+    if (!esAdmin()) return;
     $('#elegir-logo').onclick = () => $('#archivo-logo').click();
     $('#archivo-logo').onchange = async (e) => {
       try {
@@ -405,16 +424,6 @@ const alMontar = {
         else campo.value = v;
       }
       previa();
-    };
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      const nuevos = leerForm();
-      if (!Number.isInteger(nuevos.iva) || nuevos.iva < 0 || nuevos.iva > 100) return avisar(t('IVA no válido.'), true);
-      if (await guardar({ ...datos, ajustes: nuevos })) {
-        aplicarAjustes();
-        ir();
-        avisar(t('Ajustes guardados'));
-      }
     };
     previa();
   },
@@ -562,6 +571,10 @@ function formularioProducto(p) {
     if (imagen) nuevo.imagen = imagen;
     const error = validarProducto(nuevo, datos.productos);
     if (error) return ($('#error-producto').textContent = error);
+    // Cambiar el stock a mano es un recuento: pasa a ser la base desde ahora. Si no se toca, se conserva la base.
+    const recuento = !p || nuevo.stock !== p.stock;
+    nuevo.stockBase = recuento ? nuevo.stock : p.stockBase;
+    nuevo.stockFecha = recuento ? new Date().toISOString() : p.stockFecha;
     const productos = p ? datos.productos.map((x) => (x.id === p.id ? nuevo : x)) : [...datos.productos, nuevo];
     // Si se añade una foto con las imágenes desactivadas, se activan para que se vea.
     const ajustes = imagen && !datos.ajustes.imagenes ? { ...datos.ajustes, imagenes: true } : datos.ajustes;
@@ -620,19 +633,21 @@ function actualizarContador() {
 // Tema, idioma, logo y menú lateral según los ajustes guardados.
 function aplicarAjustes() {
   const a = datos.ajustes;
-  document.documentElement.dataset.tema = a.tema;
-  document.documentElement.lang = a.idioma;
-  fijarIdioma(a.idioma);
+  const pref = preferencias();
+  document.documentElement.dataset.tema = pref.tema;
+  document.documentElement.lang = pref.idioma;
+  fijarIdioma(pref.idioma);
   $('#nombre-negocio').textContent = a.negocio.toUpperCase();
   $('#logo').innerHTML = a.logo ? `<img src="${a.logo}" alt="">` : '▣';
   $('#logo').classList.toggle('con-imagen', !!a.logo);
   pintarSync();
   const menu = [['resumen', 'Resumen Diario'], ['inventario', 'Inventario & Catálogo'], ['venta', 'Punto de Venta'], ['ventas', 'Ventas & Facturas'], ['gastos', 'Gastos Operativos'], ['informes', 'Informes & Rentabilidad'], ['ajustes', 'Ajustes']];
-  $('nav').innerHTML = menu.map(([v, texto]) => `<a href="#${v}" data-vista="${v}">${esc(t(texto))}${v === 'inventario' ? ' <span class="chip" id="contador-productos">0</span>' : ''}</a>`).join('');
+  $('nav').innerHTML = menu.filter(([v]) => esAdmin() || VISTAS_TRABAJADOR.includes(v)).map(([v, texto]) => `<a href="#${v}" data-vista="${v}">${esc(t(texto))}${v === 'inventario' ? ' <span class="chip" id="contador-productos">0</span>' : ''}</a>`).join('');
 }
 
 function ir() {
-  const vista = vistas[location.hash.slice(1)] ? location.hash.slice(1) : 'resumen';
+  const pedida = location.hash.slice(1);
+  const vista = vistas[pedida] && (esAdmin() || VISTAS_TRABAJADOR.includes(pedida)) ? pedida : 'resumen';
   $('#vista').onclick = null;
   $('#vista').innerHTML = vistas[vista]();
   alMontar[vista]?.();
@@ -640,7 +655,59 @@ function ir() {
   actualizarContador();
 }
 
+// ---------- Equipo (solo admin; necesita conexión) ----------
+async function pintarEquipo() {
+  const caja = $('#equipo');
+  const r = await window.api.equipo.listar();
+  if (!caja.isConnected) return;
+  if (r.error) {
+    caja.innerHTML = `<h2>${t('Equipo')}</h2><p class="error">${t('No se pudo cargar el equipo. Revisa la conexión.')}</p><small class="ayuda">${esc(r.error)}</small>`;
+    return;
+  }
+  const roles = (actual) => ['admin', 'trabajador'].map((v) => `<option value="${v}" ${v === actual ? 'selected' : ''}>${t(v === 'admin' ? 'Administrador' : 'Trabajador')}</option>`).join('');
+  caja.innerHTML = `
+    <h2>${t('Equipo')}</h2>
+    <small class="ayuda">${t('Los trabajadores venden y ven el inventario y las ventas. No ven gastos ni informes ni cambian productos o ajustes.')}</small>
+    <table class="tabla-equipo"><tbody>
+      ${r.miembros.map((m) => `<tr><td>${esc(m.email)}${m.user_id === r.yo ? ` <small class="chip">${t('Tú')}</small>` : ''}${m.serie ? ` <small class="chip">${t('Serie')} ${esc(m.serie)}</small>` : ''}</td>
+        <td><select data-rol="${m.user_id}" aria-label="${t('Rol de {n}', { n: m.email })}">${roles(m.rol)}</select></td>
+        <td class="num"><button type="button" class="peligro" data-quitar="${m.user_id}" data-email="${esc(m.email)}">${t('Quitar')}</button></td></tr>`).join('')}
+      ${r.invitaciones.map((i) => `<tr class="pendiente"><td>${esc(i.email)} <small class="chip bajo">${t('Invitación pendiente')}</small></td><td>${t(i.rol === 'admin' ? 'Administrador' : 'Trabajador')}</td>
+        <td class="num"><button type="button" data-cancelar="${esc(i.email)}">${t('Cancelar')}</button></td></tr>`).join('')}
+    </tbody></table>
+    <div class="invitar">
+      <input type="email" id="invitar-email" placeholder="${t('correo@empresa.com')}" aria-label="${t('Correo de la persona')}">
+      <select id="invitar-rol" aria-label="${t('Rol')}">${roles('trabajador')}</select>
+      <button type="button" class="primario" id="invitar">${t('Invitar')}</button>
+    </div>
+    <small class="ayuda">${t('La persona debe crear su cuenta con ese mismo correo y confirmarlo. Al entrar se une al equipo.')}</small>
+    <p class="error" id="error-equipo" role="alert"></p>`;
+  const resultado = async (promesa, ok) => {
+    const res = await promesa;
+    if (res.error) return ($('#error-equipo').textContent = t(res.error));
+    avisar(ok);
+    pintarEquipo();
+  };
+  caja.onchange = (e) => e.target.dataset.rol && resultado(window.api.equipo.cambiar({ userId: e.target.dataset.rol, rol: e.target.value }), t('Rol actualizado'));
+  caja.onclick = (e) => {
+    const d = e.target.dataset;
+    if (d.quitar && confirm(t('¿Quitar a {n} del equipo? Dejará de ver los datos de la empresa.', { n: d.email }))) resultado(window.api.equipo.cambiar({ userId: d.quitar, rol: null }), t('Persona quitada'));
+    if (d.cancelar) resultado(window.api.equipo.cancelar(d.cancelar), t('Invitación cancelada'));
+    if (e.target.id === 'invitar') {
+      const email = $('#invitar-email').value.trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return ($('#error-equipo').textContent = t('Correo no válido.'));
+      resultado(window.api.equipo.invitar({ email, rol: $('#invitar-rol').value }), t('Invitación creada'));
+    }
+  };
+}
+
 // ---------- Cuenta y sincronización ----------
+function usarCuenta(c) {
+  cuentaEmail = c.email;
+  miRol = c.rol || 'admin';
+  miSerie = c.serie || '';
+}
+
 function textoSync() {
   const s = ultimoSync;
   const pend = s.pendientes ? ' · ' + t('{n} sin subir', { n: s.pendientes }) : '';
@@ -701,7 +768,7 @@ function mostrarAcceso(aviso = '') {
       $('#error-acceso').textContent = t('Te enviamos un correo para confirmar la cuenta. Confírmala y luego entra aquí.');
       return;
     }
-    cuentaEmail = r.email;
+    usarCuenta(await window.api.cuenta.estado());
     caja.hidden = true;
     document.body.classList.remove('sin-sesion');
     await cargarDatos();
@@ -710,10 +777,31 @@ function mostrarAcceso(aviso = '') {
   };
 }
 
-async function cargarDatos() {
-  const r = await window.api.leerDatos();
+// Los datos llegan sin stock: se calcula aquí (ver conStock).
+function recibir(r) {
   rev = r.rev;
-  datos = normalizar(r.datos);
+  datos = conStock(normalizar(r.datos));
+}
+
+async function cargarDatos() {
+  recibir(await window.api.leerDatos());
+}
+
+// Tema e idioma son de cada equipo, no de la empresa.
+function preferencias() {
+  try {
+    return { tema: 'oscuro', idioma: 'es', ...JSON.parse(localStorage.getItem('preferencias') || '{}') };
+  } catch {
+    return { tema: 'oscuro', idioma: 'es' };
+  }
+}
+
+function guardarPreferencias(p) {
+  try {
+    localStorage.setItem('preferencias', JSON.stringify(p));
+  } catch {
+    /* sin almacenamiento: se usa solo en esta sesión */
+  }
 }
 
 (async () => {
@@ -727,15 +815,20 @@ async function cargarDatos() {
   });
   // Cambios que llegan de otro equipo: se refresca la pantalla, salvo con un formulario abierto (se hace al cerrarlo).
   window.api.alLlegarDatos((r) => {
-    rev = r.rev;
-    datos = normalizar(r.datos);
+    recibir(r);
     aplicarAjustes();
     if ($('#dialogo').open) $('#dialogo').addEventListener('close', ir, { once: true });
     else if (!$('#acceso').hidden) return;
     else ir();
   });
+  window.api.alCambiarCuenta((c) => {
+    usarCuenta(c);
+    aplicarAjustes();
+    if (!$('#dialogo').open && $('#acceso').hidden) ir();
+  });
   const cuenta = await window.api.cuenta.estado();
-  cuentaEmail = cuenta.email;
+  usarCuenta(cuenta);
+  aplicarAjustes();
   if (cuenta.configurado && !cuenta.email) return mostrarAcceso();
   ir();
 })();

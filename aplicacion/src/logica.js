@@ -19,19 +19,37 @@ const facturaInicial = () => ({
 });
 
 const datosIniciales = () => ({
-  ajustes: { negocio: 'Mi Negocio', nif: '', direccion: '', moneda: '€', iva: 21, tema: 'oscuro', idioma: 'es', imagenes: false, logo: '', factura: facturaInicial() },
+  ajustes: { negocio: 'Mi Negocio', nif: '', direccion: '', moneda: '€', iva: 21, imagenes: false, logo: '', factura: facturaInicial() },
   productos: [],
   ventas: [],
   gastos: [],
-  secuencia: 0,
 });
 
 // Completa con valores por defecto los datos guardados por versiones anteriores.
 function normalizar(guardados) {
   const ini = datosIniciales();
   const g = guardados || {};
-  return { ...ini, ...g, ajustes: { ...ini.ajustes, ...g.ajustes, factura: { ...ini.ajustes.factura, ...g.ajustes?.factura } } };
+  const datos = { ...ini, ...g, ajustes: { ...ini.ajustes, ...g.ajustes, factura: { ...ini.ajustes.factura, ...g.ajustes?.factura } } };
+  // Antes el stock se guardaba ya descontado: pasa a ser la base, contada desde la última venta conocida.
+  const ultimaVenta = datos.ventas.reduce((m, v) => (v.fecha > m ? v.fecha : m), '1970-01-01T00:00:00.000Z');
+  datos.productos = datos.productos.map(({ stock, ...p }) => (p.stockBase === undefined ? { ...p, stockBase: stock ?? 0, stockFecha: ultimaVenta } : p));
+  return datos;
 }
+
+// El stock no se guarda: es la base que fija el admin menos lo vendido después.
+// Así las ventas de varios equipos (aunque estén sin conexión) se suman sin pisarse.
+function conStock(datos) {
+  const fechaBase = new Map(datos.productos.map((p) => [p.id, p.stockFecha]));
+  const vendido = new Map();
+  for (const v of datos.ventas) {
+    for (const l of v.lineas) {
+      if (fechaBase.has(l.productoId) && v.fecha > fechaBase.get(l.productoId)) vendido.set(l.productoId, (vendido.get(l.productoId) || 0) + l.cantidad);
+    }
+  }
+  return { ...datos, productos: datos.productos.map((p) => ({ ...p, stock: p.stockBase - (vendido.get(p.id) || 0) })) };
+}
+
+const sinStock = (datos) => ({ ...datos, productos: datos.productos.map(({ stock, ...p }) => p) });
 
 function aCentimos(texto) {
   const limpio = String(texto).trim().replace(/\s/g, '').replace(',', '.');
@@ -68,26 +86,30 @@ function totalesTicket(lineas, iva) {
   return { total, base, cuota: total - base };
 }
 
-function numeroFactura(anio, n) {
-  return `FAC-${anio}-${String(n).padStart(4, '0')}`;
+function numeroFactura(anio, n, serie = '') {
+  return `FAC-${serie ? serie + '-' : ''}${anio}-${String(n).padStart(4, '0')}`;
 }
 
-// Devuelve datos nuevos con la venta registrada y el stock descontado; lanza error si no hay stock.
-function registrarVenta(datos, lineas, { metodo, cliente, fecha = new Date() }) {
+// Cada persona numera en su propia serie para que dos equipos nunca repitan número.
+function siguienteNumero(ventas, serie = '') {
+  return 1 + Math.max(0, ...ventas.filter((v) => (v.serie || '') === serie).map((v) => Number(String(v.numero).split('-').pop()) || 0));
+}
+
+// Devuelve datos nuevos con la venta añadida (el stock baja solo, ver conStock); lanza error si no hay stock.
+function registrarVenta(datos, lineas, { metodo, cliente, fecha = new Date(), serie = '' }) {
   if (!lineas.length) throw new Error(tr('El ticket está vacío.'));
-  const productos = datos.productos.map((p) => ({ ...p }));
+  const productos = conStock(datos).productos;
   for (const l of lineas) {
     const p = productos.find((x) => x.id === l.productoId);
     if (!p) throw new Error(tr('El producto {n} ya no existe.', { n: l.nombre }));
     if (!Number.isInteger(l.cantidad) || l.cantidad <= 0) throw new Error(tr('Cantidad no válida para {n}.', { n: p.nombre }));
     if (p.stock < l.cantidad) throw new Error(tr('Stock insuficiente de {n} (quedan {s}).', { n: p.nombre, s: p.stock }));
-    p.stock -= l.cantidad;
   }
-  const secuencia = datos.secuencia + 1;
   const { total, base, cuota } = totalesTicket(lineas, datos.ajustes.iva);
   const venta = {
     id: crypto.randomUUID(), // único entre equipos que sincronizan
-    numero: numeroFactura(fecha.getFullYear(), secuencia),
+    numero: numeroFactura(fecha.getFullYear(), siguienteNumero(datos.ventas, serie), serie),
+    serie,
     fecha: fecha.toISOString(),
     cliente: cliente || tr('Cliente mostrador'),
     metodo,
@@ -98,7 +120,7 @@ function registrarVenta(datos, lineas, { metodo, cliente, fecha = new Date() }) 
     base,
     cuota,
   };
-  return { datos: { ...datos, productos, ventas: [...datos.ventas, venta], secuencia }, venta };
+  return { datos: { ...datos, ventas: [...datos.ventas, venta] }, venta };
 }
 
 function resumen(datos, hoy = new Date()) {
@@ -172,5 +194,5 @@ function serieMensual(datos, meses, hoy = new Date(), locale = 'es-ES') {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { fijarTraductor, normalizar, facturaInicial, datosIniciales, aCentimos, formatoDinero, validarProducto, estadoStock, totalesTicket, numeroFactura, registrarVenta, resumen, CATEGORIAS_GASTO, diaLocal, validarGasto, informe, serieMensual };
+  module.exports = { conStock, sinStock, siguienteNumero, fijarTraductor, normalizar, facturaInicial, datosIniciales, aCentimos, formatoDinero, validarProducto, estadoStock, totalesTicket, numeroFactura, registrarVenta, resumen, CATEGORIAS_GASTO, diaLocal, validarGasto, informe, serieMensual };
 }

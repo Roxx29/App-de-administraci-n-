@@ -5,6 +5,5 @@
 **Cómo:** los cambios locales quedan como pendientes y se suben al guardar, cada 30 s y al volver a la ventana. Se bajan los registros con `recibido` posterior al último visto. Gana el cambio más reciente (`actualizado`), también en el servidor (trigger).
 
 **Límites conocidos:**
-- Si dos equipos venden el mismo producto **sin conexión** a la vez, el stock final es el del último que sincroniza (no se suman ambas ventas). Con conexión se sincroniza al momento. Mejora futura: guardar movimientos de stock en vez del stock total.
-- Dos equipos sin conexión pueden generar el mismo número de factura. Mejora futura: serie por equipo.
+- ~~Stock pisado y números de factura repetidos entre equipos sin conexión~~: resuelto en la decisión 003 (stock calculado y serie por persona).
 - Imágenes y logo van dentro del JSON; con muchos productos conviene moverlos a Supabase Storage.

@@ -8,7 +8,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
-    "test": "node --test src/logica.test.js src/idiomas.test.js sincronizacion.test.js",
+    "test": "node --test src/logica.test.js src/idiomas.test.js sincronizacion.test.js nucleo.test.js",
     "build:win": "electron-builder --win portable --x64",
     "build:win:linux": "electron-builder --win portable --x64 -c.win.signAndEditExecutable=false"
   },
@@ -27,6 +27,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "nucleo.js",
       "sincronizacion.js",
       "config.json",
       "build/icon.png",

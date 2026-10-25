@@ -83,4 +83,4 @@ function fusionarRemotos(datos, estado, filas) {
   return { datos: cambios.length ? aplicar(datos, cambios) : datos, estado: { ...estado, versiones, pendientes, cursor }, hubo: cambios.length > 0 };
 }
 
-module.exports = { registrosDe, diferencias, aplicar, estadoInicial, anotarPendientes, quitarSubidos, fusionarRemotos };
+if (typeof module !== 'undefined') module.exports = { registrosDe, diferencias, aplicar, estadoInicial, anotarPendientes, quitarSubidos, fusionarRemotos };

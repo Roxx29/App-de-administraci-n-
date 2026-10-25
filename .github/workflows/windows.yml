@@ -1,0 +1,27 @@
+name: Ejecutable Windows
+
+on:
+  push:
+    paths: ['aplicacion/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: aplicacion
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: aplicacion/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:win -- --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ApexLedger-windows
+          path: aplicacion/dist/*.exe

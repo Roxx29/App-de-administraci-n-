@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:">
+  <title>ApexLedger</title>
+  <link rel="stylesheet" href="../node_modules/@fontsource/hanken-grotesk/400.css">
+  <link rel="stylesheet" href="../node_modules/@fontsource/hanken-grotesk/600.css">
+  <link rel="stylesheet" href="../node_modules/@fontsource/jetbrains-mono/400.css">
+  <link rel="stylesheet" href="../node_modules/@fontsource/jetbrains-mono/600.css">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <aside class="lateral">
+    <div class="marca"><span class="logo">▣</span><div><b>ApexLedger</b><small id="nombre-negocio">MI NEGOCIO</small></div></div>
+    <nav>
+      <a href="#resumen" data-vista="resumen">Resumen Diario</a>
+      <a href="#inventario" data-vista="inventario">Inventario &amp; Catálogo <span class="chip" id="contador-productos">0</span></a>
+      <a href="#venta" data-vista="venta">Punto de Venta</a>
+      <a href="#ventas" data-vista="ventas">Ventas &amp; Facturas</a>
+      <a href="#ajustes" data-vista="ajustes">Ajustes</a>
+    </nav>
+    <small class="estado-local">● Guardado local</small>
+  </aside>
+  <main id="vista"></main>
+  <dialog id="dialogo"></dialog>
+  <div id="aviso" role="status" aria-live="polite"></div>
+  <script src="logica.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -22,3 +22,9 @@ La app guarda todo en local y, si hay `config.json`, pide iniciar sesión y sinc
 
 En Ajustes → Equipo el admin invita por correo (rol admin o trabajador), cambia roles, da permisos concretos a cada persona o la quita. La persona invitada crea su cuenta con ese correo, lo confirma y, al entrar, se une a la empresa.
 Pruebas de seguridad: `PGHOST=… sh supabase/pruebas/ejecutar.sh` sobre un Postgres vacío.
+
+## Teléfono (Android)
+
+`aplicacion/movil/` contiene la misma interfaz empaquetada con Capacitor (ver `docs/decisiones/005-movil-capacitor.md`).
+- `cd aplicacion/movil && npm install && npm run sync` prepara `www/` y el proyecto Android.
+- El APK lo compila GitHub Actions (workflow "APK Android"). En local hace falta el SDK de Android y JDK 21: `cd android && ./gradlew assembleDebug`.

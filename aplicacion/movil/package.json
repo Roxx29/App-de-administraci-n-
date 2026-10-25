@@ -1,0 +1,20 @@
+{
+  "name": "apex-ledger-movil",
+  "version": "0.8.0",
+  "private": true,
+  "description": "ApexLedger para Android (Capacitor) con la misma interfaz que el escritorio.",
+  "scripts": {
+    "preparar": "node preparar-www.js",
+    "sync": "node preparar-www.js && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/share": "8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

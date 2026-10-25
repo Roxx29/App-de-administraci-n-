@@ -16,7 +16,7 @@
   --serie-1: #0369a1; --serie-2: #b45309; /* validado CVD sobre fondo claro */
 }
 * { box-sizing: border-box; }
-body { margin: 0; display: flex; height: 100vh; background: var(--fondo); color: var(--texto); font: 14px/1.4 var(--sans); }
+body { margin: 0; display: flex; height: 100vh; height: 100dvh; background: var(--fondo); color: var(--texto); font: 14px/1.4 var(--sans); }
 small, .mono, th, label, .chip, .etiqueta { font-family: var(--mono); }
 .lateral { width: 230px; background: var(--panel); border-right: 1px solid var(--borde); display: flex; flex-direction: column; padding: 12px; gap: 16px; }
 .marca { display: flex; gap: 10px; align-items: center; }
@@ -176,3 +176,81 @@ input[readonly] { opacity: .65; cursor: not-allowed; }
 .fila-permisos td { background: var(--panel-2); }
 .ancho-completo { grid-column: 1 / -1; }
 .permisos { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 16px; padding: 6px 2px; }
+/* ---------- Escritorio: piezas que solo existen en el teléfono ---------- */
+.solo-movil, nav .corto, .icono-nav, .ticket-cabecera .resumen-ticket { display: none; }
+.ticket-cabecera { all: unset; display: block; width: 100%; cursor: default; }
+.ticket-cabecera h2 { margin-bottom: 10px; }
+dialog.hoja-inferior { margin: auto auto 0; width: 100%; max-width: 100%; border-radius: 16px 16px 0 0; border-width: 1px 0 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+.menu-mas { display: flex; flex-direction: column; gap: 2px; }
+.menu-mas a { color: var(--texto); text-decoration: none; padding: 14px 8px; border-radius: 8px; font-size: 16px; }
+.menu-mas a:active { background: var(--panel-2); }
+.estado-mas { color: var(--suave); font: 12px var(--mono); margin: 8px 8px 12px; }
+
+/* ---------- Teléfono ---------- */
+@media (max-width: 720px) {
+  body { flex-direction: column; }
+  main { padding: 14px 16px calc(84px + env(safe-area-inset-bottom)); }
+  h1 { font-size: 20px; }
+  /* Barra lateral → barra inferior fija */
+  .lateral { position: fixed; inset: auto 0 0; width: auto; height: calc(62px + env(safe-area-inset-bottom)); padding: 0 0 env(safe-area-inset-bottom); flex-direction: row; border-right: 0; border-top: 1px solid var(--borde); z-index: 20; }
+  .lateral .marca, .lateral .estado-local { display: none; }
+  .lateral nav { flex-direction: row; gap: 0; }
+  .lateral nav a { flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 2px; border-radius: 0; font-size: 11px; position: relative; }
+  .lateral nav a:not([data-movil]) { display: none; }
+  .lateral nav a.activo { box-shadow: inset 0 3px var(--primario); background: transparent; }
+  .lateral nav .largo { display: none; }
+  .lateral nav .corto, .icono-nav, .solo-movil { display: block; }
+  .lateral nav a .chip { position: absolute; top: 4px; right: calc(50% - 22px); font-size: 9px; padding: 0 4px; }
+  /* Tocar con el dedo */
+  button, .lateral nav a, select, input:not([type=checkbox]):not([type=color]) { min-height: 44px; }
+  input, select, textarea { font-size: 16px; } /* evita el zoom automático al escribir */
+  .cabecera { gap: 8px; }
+  .acciones { width: 100%; }
+  .acciones > button { flex: 1; }
+  .acciones.fin { width: auto; }
+  .buscador { max-width: none; position: sticky; top: -14px; z-index: 5; background: var(--fondo); }
+  /* Tarjetas de indicadores */
+  .tarjetas { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .tarjeta { padding: 12px; }
+  .tarjeta .valor { font-size: 18px; word-break: break-word; }
+  .tarjetas > .panel { grid-column: 1 / -1; }
+  .dos-paneles, .dos, .invitar { grid-template-columns: 1fr; }
+  .grafico { height: 170px; gap: 4px; } .barra { width: 12px; }
+  /* Tablas → tarjetas */
+  table.tarjetizable thead { display: none; }
+  table.tarjetizable tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px 0; border-bottom: 1px solid var(--borde); }
+  table.tarjetizable td { border: 0; padding: 0; text-align: left !important; min-width: 0; }
+  table.tarjetizable td[data-et]::before { content: attr(data-et); display: block; font: 10px var(--mono); color: var(--suave); text-transform: uppercase; }
+  table.tarjetizable td:empty, table.tarjetizable td[data-et=""]::before { display: none; }
+  table.tarjetizable td:last-child:not([data-et]), table.tarjetizable td[data-et=""] { grid-column: 1 / -1; }
+  .panel { padding: 12px; }
+  /* Punto de venta: rejilla de 2 columnas y ticket como hoja inferior */
+  .rejilla { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .producto { min-height: 88px; }
+  .pos { padding-bottom: 72px; }
+  #ticket { position: fixed; left: 0; right: 0; bottom: calc(62px + env(safe-area-inset-bottom)); z-index: 15; border-radius: 16px 16px 0 0; max-height: 80dvh; overflow: auto; display: none; flex-direction: column; box-shadow: 0 -8px 24px #0006; }
+  #ticket.con-lineas { display: flex; }
+  #ticket > * { order: 1; }
+  #ticket:not(.abierta) > :not(.ticket-cabecera):not(.total-cobrar):not(#cobrar) { display: none; }
+  #ticket:not(.abierta) .total-cobrar { display: none; }
+  .ticket-cabecera { display: flex; justify-content: space-between; align-items: center; min-height: 44px; cursor: pointer; }
+  .ticket-cabecera h2 { margin: 0; }
+  .ticket-cabecera .resumen-ticket { display: inline; font: 13px var(--mono); color: var(--suave); }
+  .ticket-cabecera .resumen-ticket b { color: var(--primario-claro); font-size: 16px; }
+  #ticket .total-cobrar, #ticket #cobrar { order: 2; }
+  #ticket #cobrar { position: sticky; bottom: 0; min-height: 48px; }
+  .metodos button { min-height: 48px; }
+  .cantidad button { min-width: 44px; }
+  /* Formularios a pantalla completa */
+  dialog.hoja { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-width: 0; }
+  dialog.hoja[open] { animation-name: subir; }
+  @keyframes subir { from { transform: translateY(24px); opacity: .6; } }
+  .hoja-pie { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+  .hoja-pie .acciones { width: auto; }
+  dialog:not(.hoja):not(.hoja-inferior) { width: calc(100vw - 24px); }
+  /* Ajustes en una columna, sin vista previa de factura */
+  .ajustes, .solo-preferencias { grid-template-columns: 1fr; }
+  #vista-factura { display: none; }
+  .permisos { grid-template-columns: 1fr; }
+  #aviso { left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); text-align: center; }
+}

@@ -93,6 +93,7 @@ const TRADUCCIONES = {
     'Vender sin conexión': 'Sell offline',
     'No tienes permiso para crear productos.': 'You do not have permission to create products.', 'No tienes permiso para cambiar precios.': 'You do not have permission to change prices.',
     'No tienes permiso para ajustar el stock.': 'You do not have permission to adjust stock.', 'No tienes permiso para editar productos.': 'You do not have permission to edit products.',
+    'Más': 'More', 'Vender': 'Sell', 'Resumen': 'Summary', '{n} artículos': '{n} items', 'Toca un producto para añadirlo al ticket.': 'Tap a product to add it to the ticket.',
     // Valores que se guardan en español y se traducen al mostrarlos
     'Óptimo': 'Optimal', 'Stock bajo': 'Low stock', 'Agotado': 'Out of stock', 'Mes anterior': 'Last month', 'Este año': 'This year', 'Todo': 'All',
     'Efectivo': 'Cash', 'Tarjeta': 'Card', 'Transferencia': 'Bank transfer', 'Domiciliación': 'Direct debit', 'Oscuro': 'Dark', 'Claro': 'Light',

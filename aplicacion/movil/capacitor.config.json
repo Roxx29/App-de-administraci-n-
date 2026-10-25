@@ -1,0 +1,12 @@
+{
+  "appId": "com.apexledger.app",
+  "appName": "ApexLedger",
+  "webDir": "www",
+  "android": {
+    "webContentsDebuggingEnabled": false,
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

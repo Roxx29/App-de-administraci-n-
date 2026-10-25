@@ -1,7 +1,7 @@
 {
   "name": "apex-ledger",
   "productName": "ApexLedger",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Administración para pymes: productos, inventario, ventas, facturas y exportación a Excel.",
   "main": "main.js",
   "author": "ApexLedger",

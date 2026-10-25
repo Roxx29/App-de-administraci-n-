@@ -122,7 +122,7 @@ const vistas = {
 
   venta() {
     return `
-      <h1>${t('Punto de Venta')}</h1><p class="sub">${t('Haz clic en un producto para añadirlo al ticket.')}</p>
+      <h1>${t('Punto de Venta')}</h1><p class="sub">${window.api.movil ? t('Toca un producto para añadirlo al ticket.') : t('Haz clic en un producto para añadirlo al ticket.')}</p>
       <div id="aviso-sync"></div>
       <div class="pos">
         <div><input class="buscador" id="buscar" placeholder="${t('Buscar producto o SKU…')}" aria-label="${t('Buscar productos')}"><div class="rejilla" id="rejilla"></div></div>
@@ -292,8 +292,11 @@ const alMontar = {
     };
     const pintarTicket = () => {
       const { total, base, cuota } = totalesTicket(ticket, datos.ajustes.iva);
+      $('#ticket').classList.toggle('con-lineas', ticket.length > 0);
+      if (!ticket.length) $('#ticket').classList.remove('abierta');
       $('#ticket').innerHTML = `
-        <h2>${t('Ticket en curso')}</h2>
+        <button type="button" class="ticket-cabecera" id="ticket-cabecera" aria-expanded="${$('#ticket').classList.contains('abierta')}">
+          <h2>${t('Ticket en curso')}</h2><span class="resumen-ticket">${t('{n} artículos', { n: ticket.reduce((s, l) => s + l.cantidad, 0) })} · <b>${dinero(total)}</b></span></button>
         <label>${t('Cliente')}<input id="cliente" placeholder="${t('Cliente mostrador')}" value="${esc(pintarTicket.cliente || '')}"></label>
         ${ticket.length ? ticket.map((l, i) => `<div class="linea"><div>${esc(l.nombre)}<br><small class="mono">${dinero(l.precio)} / ${t('ud')}</small></div>
           <div class="cantidad"><button data-menos="${i}" aria-label="${t('Quitar uno')}">−</button><span class="mono">${l.cantidad}</span><button data-mas="${i}" aria-label="${t('Añadir uno')}">+</button></div>
@@ -327,6 +330,9 @@ const alMontar = {
         if (--ticket[d.menos].cantidad === 0) ticket.splice(d.menos, 1);
       } else if (d.metodo) metodoPago = d.metodo;
       else if (e.target.id === 'vaciar') ticket = [];
+      else if (e.target.closest('#ticket-cabecera')) {
+        $('#ticket').classList.toggle('abierta');
+      }
       else if (e.target.id === 'cobrar') {
         try {
           if (bloqueadoSinConexion()) return avisar(t('No tienes permiso para vender sin conexión.'), true);
@@ -692,8 +698,48 @@ function aplicarAjustes() {
   $('#logo').classList.toggle('con-imagen', !!a.logo);
   pintarSync();
   const menu = [['resumen', 'Resumen Diario'], ['inventario', 'Inventario & Catálogo'], ['venta', 'Punto de Venta'], ['ventas', 'Ventas & Facturas'], ['gastos', 'Gastos Operativos'], ['informes', 'Informes & Rentabilidad'], ['ajustes', 'Ajustes']];
-  $('nav').innerHTML = menu.filter(([v]) => vistaPermitida(v)).map(([v, texto]) => `<a href="#${v}" data-vista="${v}">${esc(t(texto))}${v === 'inventario' ? ' <span class="chip" id="contador-productos">0</span>' : ''}</a>`).join('');
+  // En el teléfono la barra inferior muestra 4 destinos y "Más" para el resto.
+  $('nav').innerHTML = menu.filter(([v]) => vistaPermitida(v)).map(([v, texto]) => `<a href="#${v}" data-vista="${v}" ${MOVIL_PRINCIPAL[v] ? 'data-movil' : ''}>${ICONOS[v] || ''}<span class="largo">${esc(t(texto))}</span><span class="corto">${esc(t(MOVIL_PRINCIPAL[v] || texto))}</span>${v === 'inventario' ? ' <span class="chip" id="contador-productos">0</span>' : ''}</a>`).join('')
+    + `<a href="#" class="solo-movil" id="mas" data-movil>${ICONOS.mas}<span class="corto">${t('Más')}</span></a>`;
+  $('#mas').onclick = (e) => {
+    e.preventDefault();
+    abrirMas(menu.filter(([v]) => vistaPermitida(v) && !MOVIL_PRINCIPAL[v]));
+  };
 }
+
+// Iconos de la barra inferior (trazo de 1.8, mismo estilo que el resto de la app).
+const icono = (d) => `<svg class="icono-nav" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICONOS = {
+  venta: icono('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/>'),
+  inventario: icono('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
+  resumen: icono('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
+  ventas: icono('<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h6M9 17h6"/>'),
+  mas: icono('<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>'),
+};
+const MOVIL_PRINCIPAL = { venta: 'Vender', inventario: 'Inventario', resumen: 'Resumen', ventas: 'Ventas' };
+
+function abrirMas(destinos) {
+  const dlg = $('#dialogo');
+  dlg.className = 'hoja-inferior';
+  dlg.innerHTML = `<nav class="menu-mas" aria-label="${t('Más')}">
+      ${destinos.map(([v, texto]) => `<a href="#${v}">${esc(t(texto))}</a>`).join('')}
+      <p class="estado-mas">● ${esc(textoSync())}</p>
+      <button type="button" id="cerrar-mas">${t('Cerrar')}</button></nav>`;
+  dlg.showModal();
+  dlg.onclick = (e) => (e.target === dlg || e.target.id === 'cerrar-mas' || e.target.closest('a')) && dlg.close();
+  dlg.addEventListener('close', () => (dlg.className = '', dlg.onclick = null), { once: true });
+}
+
+// En pantallas estrechas las tablas se ven como tarjetas: cada celda lleva el nombre de su columna.
+function etiquetarTablas(raiz) {
+  raiz.querySelectorAll('table').forEach((tabla) => {
+    const titulos = [...tabla.querySelectorAll('thead th')].map((th) => th.textContent.trim());
+    if (!titulos.length) return;
+    tabla.classList.add('tarjetizable');
+    tabla.querySelectorAll('tbody tr').forEach((tr) => [...tr.children].forEach((td, i) => titulos[i] && (td.dataset.et = titulos[i])));
+  });
+}
+new MutationObserver(() => etiquetarTablas($('#vista'))).observe($('#vista'), { childList: true, subtree: true });
 
 function ir() {
   const pedida = location.hash.slice(1);

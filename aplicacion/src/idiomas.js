@@ -105,6 +105,7 @@ const TRADUCCIONES = {
     'Contraseña cambiada. Se cerró la sesión en tus otros equipos.': 'Password changed. Your other devices were signed out.',
     'La contraseña es demasiado corta o débil.': 'The password is too short or weak.', 'Código incorrecto o caducado.': 'Wrong or expired code.',
     'La contraseña nueva debe ser distinta de la anterior.': 'The new password must be different from the old one.',
+    'Se enviaron demasiados correos. Espera un rato y vuelve a intentarlo.': 'Too many emails were sent. Wait a while and try again.',
     // Valores que se guardan en español y se traducen al mostrarlos
     'Óptimo': 'Optimal', 'Stock bajo': 'Low stock', 'Agotado': 'Out of stock', 'Mes anterior': 'Last month', 'Este año': 'This year', 'Todo': 'All',
     'Efectivo': 'Cash', 'Tarjeta': 'Card', 'Transferencia': 'Bank transfer', 'Domiciliación': 'Direct debit', 'Oscuro': 'Dark', 'Claro': 'Light',

@@ -177,6 +177,7 @@ function crearNucleo({ S, normalizar, almacen, almacenSesion, crearCliente, conf
     [/token has expired or is invalid|otp.*(expired|invalid)|invalid.*(token|otp)/i, 'Código incorrecto o caducado.'],
     [/same.*password|different from the old/i, 'La contraseña nueva debe ser distinta de la anterior.'],
     [/invalid email|unable to validate email/i, 'Correo no válido.'],
+    [/rate limit|too many requests|only request this after/i, 'Se enviaron demasiados correos. Espera un rato y vuelve a intentarlo.'],
     [/fetch failed|failed to fetch|network/i, 'No hay conexión con el servidor.'],
   ];
   const mensajeAcceso = (e) => (MENSAJES_ACCESO.find(([re]) => re.test(e.message)) || [null, e.message])[1];

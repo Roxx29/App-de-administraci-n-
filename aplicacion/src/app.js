@@ -691,6 +691,7 @@ function aplicarAjustes() {
   const a = datos.ajustes;
   const pref = preferencias();
   document.documentElement.dataset.tema = pref.tema;
+  window.api.estiloBarras?.(pref.tema);
   document.documentElement.lang = pref.idioma;
   fijarIdioma(pref.idioma);
   $('#nombre-negocio').textContent = a.negocio.toUpperCase();

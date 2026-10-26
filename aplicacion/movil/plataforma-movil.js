@@ -5,6 +5,7 @@
   const Filesystem = Capacitor.registerPlugin('Filesystem');
   const Share = Capacitor.registerPlugin('Share');
   const App = Capacitor.registerPlugin('App');
+  const SystemBars = Capacitor.registerPlugin('SystemBars');
   const Nativo = Capacitor.registerPlugin('ApexNativo'); // plugin propio: almacén seguro e impresión (android/…/ApexNativoPlugin.java)
   const DATOS = 'DATA';
 
@@ -135,6 +136,8 @@
     alLlegarDatos: (fn) => oyentes['datos:remotos'].push(fn),
     alCambiarCuenta: (fn) => oyentes['cuenta:cambio'].push(fn),
     movil: true,
+    // Iconos de la barra de estado: claros sobre el tema oscuro, oscuros sobre el claro.
+    estiloBarras: (tema) => SystemBars.setStyle({ style: tema === 'claro' ? 'LIGHT' : 'DARK' }).catch(() => {}),
   };
   document.documentElement.classList.add('movil');
 })();

@@ -107,6 +107,8 @@ const TRADUCCIONES = {
     'La contraseña nueva debe ser distinta de la anterior.': 'The new password must be different from the old one.',
     'Se enviaron demasiados correos. Espera un rato y vuelve a intentarlo.': 'Too many emails were sent. Wait a while and try again.',
     'Código (o pega aquí el enlace del correo)': 'Code (or paste the email link here)',
+    'Hoy': 'Today', 'Gastos': 'Expenses', 'Informes': 'Reports', '+ Cliente': '+ Customer', 'Cobrar {t}': 'Charge {t}',
+    'Exportar esta vista a Excel': 'Export this view to Excel',
     // Valores que se guardan en español y se traducen al mostrarlos
     'Óptimo': 'Optimal', 'Stock bajo': 'Low stock', 'Agotado': 'Out of stock', 'Mes anterior': 'Last month', 'Este año': 'This year', 'Todo': 'All',
     'Efectivo': 'Cash', 'Tarjeta': 'Card', 'Transferencia': 'Bank transfer', 'Domiciliación': 'Direct debit', 'Oscuro': 'Dark', 'Claro': 'Light',

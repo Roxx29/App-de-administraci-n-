@@ -19,6 +19,7 @@ const PERMISOS = [
   ['ajustar_stock', 'Ajustar stock (recuentos)'], ['anular_ventas', 'Anular ventas'], ['gastos', 'Ver y registrar gastos'],
   ['ver_informes', 'Ver informes'], ['exportar', 'Exportar a Excel'], ['vender_sin_conexion', 'Vender sin conexión'],
 ];
+const titulo = (largo, corto) => `<span class="solo-d">${t(largo)}</span><span class="solo-m">${t(corto)}</span>`;
 const botonExportar = (id, activo = true) => (puedo('exportar') ? `<button id="${id}" ${activo ? '' : 'disabled'}>${t('Exportar a Excel')}</button>` : '');
 // Sin sincronizar hace más de 2 minutos, el stock puede no reflejar lo vendido en otros equipos.
 const sinSincronizar = () => !!cuentaEmail && (ultimoSync.estado !== 'ok' || Date.now() - new Date(ultimoSync.hora) > 120000);
@@ -88,7 +89,7 @@ const vistas = {
     const ultimas = ventasValidas(datos).slice(-5).reverse();
     const faltas = descuadres(datos);
     return `
-      <h1>${t('Resumen Diario')}</h1><p class="sub">${new Date().toLocaleDateString(locale(), { dateStyle: 'full' })}</p>
+      <h1>${titulo('Resumen Diario', 'Hoy')}</h1><p class="sub">${new Date().toLocaleDateString(locale(), { dateStyle: 'full' })}</p>
       ${faltas.length ? `<section class="panel alerta-descuadre"><h2>${t('Descuadre de stock')}</h2>
         <p class="sub">${t('Se vendió más de lo que había, normalmente por ventas hechas sin conexión en varios equipos. Recuenta el stock o anula la venta que no se pudo entregar.')}</p>
         ${faltas.map((d) => `<div class="descuadre">
@@ -112,17 +113,17 @@ const vistas = {
 
   inventario() {
     return `
-      <div class="cabecera"><div><h1>${t('Inventario & Catálogo')}</h1><p class="sub">${t('{n} productos', { n: datos.productos.length })}</p></div>
+      <div class="cabecera"><div><h1>${titulo('Inventario & Catálogo', 'Inventario')}</h1><p class="sub">${t('{n} productos', { n: datos.productos.length })}</p></div>
         <div class="acciones">${botonExportar('exportar-productos')}${puedo('crear_productos') ? `<button class="primario" id="nuevo-producto">${t('+ Nuevo producto')}</button>` : ''}</div></div>
       <input class="buscador" id="buscar" placeholder="${t('Buscar por nombre, SKU o categoría…')}" aria-label="${t('Buscar productos')}">
-      <div class="panel"><table>
+      <div class="panel"><table class="tabla-inventario">
         <thead><tr>${conImagenes() ? '<th></th>' : ''}<th>SKU</th><th>${t('Producto')}</th><th>${t('Categoría')}</th><th class="num">${t('Existencias')}</th><th class="num">${t('Costo')}</th><th class="num">${t('Precio (IVA incl.)')}</th><th class="num">${t('Margen')}</th><th></th></tr></thead>
         <tbody id="filas"></tbody></table></div>`;
   },
 
   venta() {
     return `
-      <h1>${t('Punto de Venta')}</h1><p class="sub">${window.api.movil ? t('Toca un producto para añadirlo al ticket.') : t('Haz clic en un producto para añadirlo al ticket.')}</p>
+      <h1>${titulo('Punto de Venta', 'Vender')}</h1><p class="sub solo-d">${window.api.movil ? t('Toca un producto para añadirlo al ticket.') : t('Haz clic en un producto para añadirlo al ticket.')}</p>
       <div id="aviso-sync"></div>
       <div class="pos">
         <div><input class="buscador" id="buscar" placeholder="${t('Buscar producto o SKU…')}" aria-label="${t('Buscar productos')}"><div class="rejilla" id="rejilla"></div></div>
@@ -134,13 +135,13 @@ const vistas = {
     const lista = datos.ventas.slice().reverse();
     const anuladas = new Map(datos.anulaciones.map((a) => [a.id, a]));
     return `
-      <div class="cabecera"><div><h1>${t('Ventas & Facturas')}</h1><p class="sub">${t('{n} facturas emitidas', { n: datos.ventas.length })}</p></div>
+      <div class="cabecera"><div><h1>${titulo('Ventas & Facturas', 'Ventas')}</h1><p class="sub">${t('{n} facturas emitidas', { n: datos.ventas.length })}</p></div>
         <div class="acciones">${botonExportar('exportar-ventas', lista.length)}</div></div>
-      <div class="panel">${lista.length ? `<table>
+      <div class="panel">${lista.length ? `<table class="tabla-ventas">
         <thead><tr><th>${t('Factura')}</th><th>${t('Fecha')}</th><th>${t('Cliente')}</th><th>${t('Método')}</th><th class="num">${t('Artículos')}</th><th class="num">${t('Total')}</th><th></th></tr></thead>
-        <tbody>${lista.map((v) => `<tr class="${anuladas.has(v.id) ? 'anulada' : ''}"><td class="mono">${v.numero}${anuladas.has(v.id) ? ` <small class="chip agotado" title="${esc(anuladas.get(v.id).motivo)}">${t('Anulada')}</small>` : ''}</td><td>${fecha(v.fecha)}</td><td>${esc(v.cliente)}</td><td>${esc(t(v.metodo))}</td>
-          <td class="num">${v.lineas.reduce((s, l) => s + l.cantidad, 0)}</td><td class="num">${dinero(v.total)}</td>
-          <td class="num"><div class="acciones fin">${puedo('anular_ventas') && !anuladas.has(v.id) ? `<button data-anular="${v.id}">${t('Anular')}</button>` : ''}<button data-pdf="${v.id}">${t('Factura PDF')}</button></div></td></tr>`).join('')}</tbody></table>` : `<p class="vacio">${t('Aún no hay ventas. Registra la primera en el Punto de Venta.')}</p>`}</div>`;
+        <tbody>${lista.map((v) => `<tr class="${anuladas.has(v.id) ? 'anulada' : ''}"><td class="mono c-num">${v.numero}${anuladas.has(v.id) ? ` <small class="chip agotado" title="${esc(anuladas.get(v.id).motivo)}">${t('Anulada')}</small>` : ''}</td><td class="c-fecha">${fecha(v.fecha)}</td><td class="c-cliente">${esc(v.cliente)}</td><td class="c-metodo">${esc(t(v.metodo))}</td>
+          <td class="num c-art">${v.lineas.reduce((s, l) => s + l.cantidad, 0)}</td><td class="num c-total">${dinero(v.total)}</td>
+          <td class="num c-accion"><div class="acciones fin">${puedo('anular_ventas') && !anuladas.has(v.id) ? `<button class="boton-anular" data-anular="${v.id}">${t('Anular')}</button>` : ''}<button data-pdf="${v.id}" aria-label="${t('Factura PDF')} ${v.numero}">${t('Factura PDF')}</button></div></td></tr>`).join('')}</tbody></table>` : `<p class="vacio">${t('Aún no hay ventas. Registra la primera en el Punto de Venta.')}</p>`}</div>`;
   },
 
   gastos() {
@@ -148,12 +149,12 @@ const vistas = {
     const mes = diaLocal(new Date()).slice(0, 7);
     const delMes = datos.gastos.filter((g) => g.fecha.startsWith(mes)).reduce((s, g) => s + g.importe, 0);
     return `
-      <div class="cabecera"><div><h1>${t('Gastos Operativos')}</h1><p class="sub">${t('Este mes')}: <b class="mono">${dinero(delMes)}</b> · ${t('{n} gastos registrados', { n: datos.gastos.length })}</p></div>
+      <div class="cabecera"><div><h1>${titulo('Gastos Operativos', 'Gastos')}</h1><p class="sub">${t('Este mes')}: <b class="mono">${dinero(delMes)}</b> · ${t('{n} gastos registrados', { n: datos.gastos.length })}</p></div>
         <div class="acciones">${botonExportar('exportar-gastos', lista.length)}<button class="primario" id="nuevo-gasto">${t('+ Nuevo gasto')}</button></div></div>
-      <div class="panel">${lista.length ? `<table>
+      <div class="panel">${lista.length ? `<table class="tabla-gastos">
         <thead><tr><th>${t('Fecha')}</th><th>${t('Concepto')}</th><th>${t('Categoría')}</th><th>${t('Método')}</th><th class="num">${t('Importe')}</th><th></th></tr></thead>
-        <tbody>${lista.map((g) => `<tr><td class="mono">${fechaDia(g.fecha)}</td><td>${esc(g.concepto)}</td><td>${esc(t(g.categoria))}</td><td>${esc(t(g.metodo))}</td>
-          <td class="num">${dinero(g.importe)}</td><td class="num"><button data-editar="${g.id}">${t('Editar')}</button></td></tr>`).join('')}</tbody></table>`
+        <tbody>${lista.map((g) => `<tr><td class="mono c-fecha">${fechaDia(g.fecha)}</td><td class="c-concepto">${esc(g.concepto)}</td><td class="c-cat">${esc(t(g.categoria))}</td><td class="c-metodo">${esc(t(g.metodo))}</td>
+          <td class="num c-importe">${dinero(g.importe)}</td><td class="num c-accion"><button data-editar="${g.id}" aria-label="${t('Editar')} ${esc(g.concepto)}">${t('Editar')}</button></td></tr>`).join('')}</tbody></table>`
         : `<p class="vacio">${t('Aún no hay gastos. Registra alquiler, proveedores, luz… para ver la rentabilidad real en Informes.')}</p>`}</div>`;
   },
 
@@ -166,7 +167,7 @@ const vistas = {
     const periodos = { mes: 'Este mes', anterior: 'Mes anterior', anio: 'Este año', todo: 'Todo' };
     const rango = periodo === 'todo' ? t('Todo el historial') : t('Del {d} al {h}', { d: fechaDia(desde), h: fechaDia(hasta) });
     return `
-      <div class="cabecera"><div><h1>${t('Informes & Rentabilidad')}</h1><p class="sub">${rango} · ${t('importes sin IVA')}</p></div>
+      <div class="cabecera"><div><h1>${titulo('Informes & Rentabilidad', 'Informes')}</h1><p class="sub">${rango} · ${t('importes sin IVA')}</p></div>
         <div class="acciones">${Object.entries(periodos).map(([k, v]) => `<button data-periodo="${k}" class="${k === periodo ? 'activo-periodo' : ''}">${t(v)}</button>`).join('')}
         ${puedo('exportar') ? `<button class="primario" id="exportar-informe">${t('Exportar a Excel')}</button>` : ''}</div></div>
       <div class="tarjetas">
@@ -248,7 +249,7 @@ const vistas = {
           <label>${t('Notas / condiciones')}<textarea name="notas" rows="2" placeholder="${t('Ej.: Cambios y devoluciones en 15 días con este ticket.')}">${esc(f.notas)}</textarea></label>
           <div class="casillas">${casilla('mostrarLogo', f.mostrarLogo, 'Mostrar logo')}${casilla('mostrarSku', f.mostrarSku, 'Mostrar SKU')}${casilla('mostrarMetodo', f.mostrarMetodo, 'Mostrar método de pago')}</div>
           <div class="cabecera"><div class="etiqueta-campo">${t('Vista previa')}</div><button type="button" id="restablecer-factura">${t('Restablecer diseño')}</button></div>
-          <iframe id="vista-factura" title="${t('Vista previa de la factura')}" sandbox></iframe>
+          <div class="marco-factura"><iframe id="vista-factura" title="${t('Vista previa de la factura')}" sandbox></iframe></div>
         </section>` : ''}
         ${cuentaEmail && esAdmin() ? `<section class="panel ancho-completo" id="equipo"><h2>${t('Equipo')}</h2><p class="vacio">${t('Cargando…')}</p></section>` : ''}
       </form>`;
@@ -265,10 +266,10 @@ const alMontar = {
       $('#filas').innerHTML = lista.length ? lista.map((p) => {
         const est = estadoStock(p);
         const margen = p.precio ? Math.round(((neto(p.precio) - p.costo) / neto(p.precio)) * 100) : 0;
-        return `<tr>${conImagenes() ? `<td>${miniatura(p, 'mini')}</td>` : ''}<td class="mono">${esc(p.sku)}</td><td>${esc(p.nombre)}</td><td>${esc(p.categoria)}</td>
-          <td class="num"><span class="chip ${est}">${t('{n} uds', { n: p.stock })} · ${t(ESTADOS[est])}</span></td>
-          <td class="num">${dinero(p.costo)}</td><td class="num">${dinero(p.precio)}</td><td class="num">${margen}%</td>
-          <td class="num">${puedoTocarProductos() ? `<button data-editar="${p.id}">${t('Editar')}</button>` : ''}</td></tr>`;
+        return `<tr>${conImagenes() ? `<td class="c-img">${miniatura(p, 'mini')}</td>` : ''}<td class="mono c-sku">${esc(p.sku)}</td><td class="c-nombre">${esc(p.nombre)}</td><td class="c-cat">${esc(p.categoria)}</td>
+          <td class="num c-stock"><span class="chip ${est}">${t('{n} uds', { n: p.stock })}<span class="solo-d"> · ${t(ESTADOS[est])}</span></span></td>
+          <td class="num c-costo">${dinero(p.costo)}</td><td class="num c-precio">${dinero(p.precio)}</td><td class="num c-margen">${margen}%</td>
+          <td class="num c-accion">${puedoTocarProductos() ? `<button data-editar="${p.id}" aria-label="${t('Editar')} ${esc(p.nombre)}">${t('Editar')}</button>` : ''}</td></tr>`;
       }).join('') : `<tr><td colspan="9" class="vacio">${datos.productos.length ? t('Sin resultados.') : t('Aún no hay productos. Crea el primero con “+ Nuevo producto”.')}</td></tr>`;
     };
     $('#buscar').oninput = pintar;
@@ -282,12 +283,13 @@ const alMontar = {
   venta() {
     const pintarRejilla = () => {
       const q = $('#buscar').value.toLowerCase();
-      const lista = datos.productos.filter((p) => `${p.nombre} ${p.sku}`.toLowerCase().includes(q));
+      const lista = datos.productos.filter((p) => `${p.nombre} ${p.sku}`.toLowerCase().includes(q)).sort((a, b) => (a.stock <= 0) - (b.stock <= 0));
       $('#rejilla').innerHTML = lista.length ? lista.map((p) => {
         const est = estadoStock(p);
-        return `<button class="producto" data-id="${p.id}" ${p.stock <= 0 ? 'disabled' : ''}>
+        const enTicket = ticket.find((l) => l.productoId === p.id)?.cantidad;
+        return `<button class="producto" data-id="${p.id}" ${p.stock <= 0 ? 'disabled' : ''} ${enTicket ? `data-en-ticket="×${enTicket}"` : ''}>
           ${conImagenes() ? miniatura(p, 'foto') : ''}
-          <span class="chip ${est}">${esc(p.sku)} · Stock: ${p.stock}</span><b>${esc(p.nombre)}</b><span class="precio">${dinero(p.precio)}</span></button>`;
+          <span class="chip ${est}"><span class="solo-d">${esc(p.sku)} · </span>${t('{n} uds', { n: p.stock })}</span><b>${esc(p.nombre)}</b><span class="precio">${dinero(p.precio)}</span></button>`;
       }).join('') : `<p class="vacio">${datos.productos.length ? t('Sin resultados.') : t('Primero crea productos en Inventario.')}</p>`;
     };
     const pintarTicket = () => {
@@ -297,15 +299,17 @@ const alMontar = {
       $('#ticket').innerHTML = `
         <button type="button" class="ticket-cabecera" id="ticket-cabecera" aria-expanded="${$('#ticket').classList.contains('abierta')}">
           <h2>${t('Ticket en curso')}</h2><span class="resumen-ticket">${t('{n} artículos', { n: ticket.reduce((s, l) => s + l.cantidad, 0) })} · <b>${dinero(total)}</b></span></button>
-        <label>${t('Cliente')}<input id="cliente" placeholder="${t('Cliente mostrador')}" value="${esc(pintarTicket.cliente || '')}"></label>
+        <details class="cliente-det" ${!window.api.movil || pintarTicket.cliente ? 'open' : ''}><summary>${t('+ Cliente')}</summary>
+          <label>${t('Cliente')}<input id="cliente" placeholder="${t('Cliente mostrador')}" value="${esc(pintarTicket.cliente || '')}"></label></details>
         ${ticket.length ? ticket.map((l, i) => `<div class="linea"><div>${esc(l.nombre)}<br><small class="mono">${dinero(l.precio)} / ${t('ud')}</small></div>
           <div class="cantidad"><button data-menos="${i}" aria-label="${t('Quitar uno')}">−</button><span class="mono">${l.cantidad}</span><button data-mas="${i}" aria-label="${t('Añadir uno')}">+</button></div>
           <b class="mono">${dinero(l.precio * l.cantidad)}</b></div>`).join('') : `<p class="vacio">${t('Ticket vacío')}</p>`}
         <div class="totales"><div><span>${t('Base imponible')}</span><span>${dinero(base)}</span></div><div><span>${t('IVA')} (${datos.ajustes.iva}%)</span><span>${dinero(cuota)}</span></div></div>
         <div class="total-cobrar"><small>${t('TOTAL A COBRAR')}</small><b>${dinero(total)}</b></div>
         <div class="metodos">${['Efectivo', 'Tarjeta', 'Transferencia'].map((m) => `<button data-metodo="${m}" class="${m === metodoPago ? 'activo' : ''}">${t(m)}</button>`).join('')}</div>
-        <button class="primario" id="cobrar" style="width:100%" ${ticket.length && !bloqueadoSinConexion() ? '' : 'disabled'}>${t('Cobrar y generar factura')}</button>
-        <button id="vaciar" style="width:100%;margin-top:6px" ${ticket.length ? '' : 'disabled'}>${t('Vaciar ticket')}</button>`;
+        <button class="primario" id="cobrar" style="width:100%" ${ticket.length && !bloqueadoSinConexion() ? '' : 'disabled'}><span class="solo-d">${t('Cobrar y generar factura')}</span><span class="solo-m">${t('Cobrar {t}', { t: dinero(total) })}</span></button>
+        <button id="vaciar" ${ticket.length ? '' : 'disabled'}>${t('Vaciar ticket')}</button>`;
+      pintarRejilla(); // muestra en cada producto cuántos lleva el ticket
     };
     $('#buscar').oninput = pintarRejilla;
     $('#rejilla').onclick = (e) => {
@@ -320,7 +324,9 @@ const alMontar = {
     };
     $('#ticket').oninput = (e) => e.target.id === 'cliente' && (pintarTicket.cliente = e.target.value);
     $('#ticket').onclick = async (e) => {
-      const d = e.target.dataset;
+      // El toque puede caer en un texto dentro del botón: se actúa sobre el botón.
+      const el = e.target.closest('button') || e.target;
+      const d = el.dataset;
       if (d.mas) {
         const l = ticket[d.mas];
         const p = datos.productos.find((x) => x.id === l.productoId);
@@ -329,11 +335,11 @@ const alMontar = {
       } else if (d.menos) {
         if (--ticket[d.menos].cantidad === 0) ticket.splice(d.menos, 1);
       } else if (d.metodo) metodoPago = d.metodo;
-      else if (e.target.id === 'vaciar') ticket = [];
+      else if (el.id === 'vaciar') ticket = [];
       else if (e.target.closest('#ticket-cabecera')) {
         $('#ticket').classList.toggle('abierta');
       }
-      else if (e.target.id === 'cobrar') {
+      else if (el.id === 'cobrar') {
         try {
           if (bloqueadoSinConexion()) return avisar(t('No tienes permiso para vender sin conexión.'), true);
           const r = registrarVenta(datos, ticket, { metodo: metodoPago, cliente: pintarTicket.cliente, serie: miSerie, vendedor: cuentaEmail || '', sinConexion: sinSincronizar() });
@@ -416,6 +422,9 @@ const alMontar = {
       };
     };
     const previa = () => esAdmin() && ($('#vista-factura').srcdoc = factura(ventaEjemplo(), leerForm()));
+    // La factura se dibuja como una hoja A4 (794px de ancho) y se reduce al ancho disponible.
+    const marco = $('.marco-factura');
+    if (marco) new ResizeObserver(() => marco.style.setProperty('--escala', marco.clientWidth / 794)).observe(marco);
     form.oninput = (e) => e.target.closest('#equipo') || previa();
     if (cuentaEmail) {
       $('#sincronizar-ya').onclick = () => window.api.sincronizarAhora();
@@ -535,7 +544,7 @@ function formularioProducto(p) {
       </div>
       <footer class="hoja-pie">
         ${p ? `<button type="button" class="peligro" id="borrar">${t('Eliminar')}</button>` : '<span></span>'}
-        <div class="acciones"><button type="button" id="cancelar-pie">${t('Cancelar')}</button><button class="primario">${p ? t('Guardar cambios') : t('Crear producto')}</button></div>
+        <div class="acciones"><button type="button" id="cancelar-pie" class="solo-d">${t('Cancelar')}</button><button class="primario">${p ? t('Guardar cambios') : t('Crear producto')}</button></div>
       </footer>
     </form>`;
   const form = $('#form-producto');
@@ -684,6 +693,9 @@ async function exportar(nombre, columnas, filas, otrasHojas = []) {
 
 function actualizarContador() {
   $('#contador-productos').textContent = datos.productos.length;
+  const alertas = conStock(datos).productos.filter((p) => estadoStock(p) !== 'ok').length;
+  $('#contador-alertas').textContent = alertas;
+  $('#contador-alertas').hidden = !alertas;
 }
 
 // Tema, idioma, logo y menú lateral según los ajustes guardados.
@@ -700,7 +712,7 @@ function aplicarAjustes() {
   pintarSync();
   const menu = [['resumen', 'Resumen Diario'], ['inventario', 'Inventario & Catálogo'], ['venta', 'Punto de Venta'], ['ventas', 'Ventas & Facturas'], ['gastos', 'Gastos Operativos'], ['informes', 'Informes & Rentabilidad'], ['ajustes', 'Ajustes']];
   // En el teléfono la barra inferior muestra 4 destinos y "Más" para el resto.
-  $('nav').innerHTML = menu.filter(([v]) => vistaPermitida(v)).map(([v, texto]) => `<a href="#${v}" data-vista="${v}" ${MOVIL_PRINCIPAL[v] ? 'data-movil' : ''}>${ICONOS[v] || ''}<span class="largo">${esc(t(texto))}</span><span class="corto">${esc(t(MOVIL_PRINCIPAL[v] || texto))}</span>${v === 'inventario' ? ' <span class="chip" id="contador-productos">0</span>' : ''}</a>`).join('')
+  $('nav').innerHTML = menu.filter(([v]) => vistaPermitida(v)).map(([v, texto]) => `<a href="#${v}" data-vista="${v}" ${MOVIL_PRINCIPAL[v] ? 'data-movil' : ''}>${ICONOS[v] || ''}<span class="largo">${esc(t(texto))}</span><span class="corto">${esc(t(MOVIL_PRINCIPAL[v] || texto))}</span>${v === 'inventario' ? ' <span class="chip" id="contador-productos">0</span><span class="chip agotado" id="contador-alertas" hidden></span>' : ''}</a>`).join('')
     + `<a href="#" class="solo-movil" id="mas" data-movil>${ICONOS.mas}<span class="corto">${t('Más')}</span></a>`;
   $('#mas').onclick = (e) => {
     e.preventDefault();
@@ -716,18 +728,28 @@ const ICONOS = {
   resumen: icono('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   ventas: icono('<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h6M9 17h6"/>'),
   mas: icono('<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>'),
+  gastos: icono('<rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/>'),
+  informes: icono('<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>'),
+  ajustes: icono('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+  exportar: icono('<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>'),
 };
 const MOVIL_PRINCIPAL = { venta: 'Vender', inventario: 'Inventario', resumen: 'Resumen', ventas: 'Ventas' };
 
 function abrirMas(destinos) {
   const dlg = $('#dialogo');
   dlg.className = 'hoja-inferior';
+  const actual = location.hash.slice(1);
+  const exportar = $('#vista button[id^="exportar-"]');
   dlg.innerHTML = `<nav class="menu-mas" aria-label="${t('Más')}">
-      ${destinos.map(([v, texto]) => `<a href="#${v}">${esc(t(texto))}</a>`).join('')}
+      ${destinos.map(([v, texto]) => `<a href="#${v}" class="${v === actual ? 'activo' : ''}">${ICONOS[v] || ''}${esc(t(texto))}</a>`).join('')}
+      ${exportar && !exportar.disabled ? `<button type="button" class="enlace-menu" id="mas-exportar">${ICONOS.exportar}${t('Exportar esta vista a Excel')}</button>` : ''}
       <p class="estado-mas">● ${esc(textoSync())}</p>
       <button type="button" id="cerrar-mas">${t('Cerrar')}</button></nav>`;
   dlg.showModal();
-  dlg.onclick = (e) => (e.target === dlg || e.target.id === 'cerrar-mas' || e.target.closest('a')) && dlg.close();
+  dlg.onclick = (e) => {
+    if (e.target.closest('#mas-exportar')) exportar.click();
+    if (e.target === dlg || e.target.id === 'cerrar-mas' || e.target.closest('a, #mas-exportar')) dlg.close();
+  };
   dlg.addEventListener('close', () => (dlg.className = '', dlg.onclick = null), { once: true });
 }
 

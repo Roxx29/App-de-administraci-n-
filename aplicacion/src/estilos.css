@@ -103,7 +103,9 @@ textarea { resize: vertical; }
 .logo-vista { width: 120px; height: 64px; border: 1px dashed var(--borde); border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #fff; }
 .logo-vista img { max-width: 110px; max-height: 56px; object-fit: contain; }
 .logo-vista small { color: #667; }
-#vista-factura { width: 100%; height: 560px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; }
+/* Vista previa de factura: una hoja A4 (794×1123px) reducida al ancho disponible */
+.marco-factura { position: relative; width: 100%; aspect-ratio: 210 / 297; overflow: hidden; border: 1px solid var(--borde); border-radius: 8px; background: #fff; }
+#vista-factura { position: absolute; top: 0; left: 0; width: 794px; height: 1123px; border: 0; background: #fff; transform-origin: 0 0; transform: scale(var(--escala, 0.6)); }
 .mini { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; display: block; }
 .foto { width: 100%; height: 96px; border-radius: 6px; object-fit: cover; }
 .foto-grande { width: 96px; height: 96px; border-radius: 8px; object-fit: cover; }
@@ -193,7 +195,7 @@ dialog.hoja-inferior { margin: auto auto 0; width: 100%; max-width: 100%; border
   /* El contenido empieza debajo de la barra de estado de Android */
   body { flex-direction: column; padding-top: var(--sat); }
   dialog.hoja .hoja-cabecera { padding-top: calc(18px + var(--sat)); }
-  main { padding: 14px 16px calc(84px + var(--sab)); }
+  main { padding: 14px 16px calc(140px + var(--sab)); } /* deja sitio al botón flotante y a la barra */
   h1 { font-size: 20px; }
   /* Barra lateral → barra inferior fija */
   .lateral { position: fixed; inset: auto 0 0; width: auto; height: calc(62px + var(--sab)); padding: 0 0 var(--sab); flex-direction: row; border-right: 0; border-top: 1px solid var(--borde); z-index: 20; }
@@ -238,7 +240,6 @@ dialog.hoja-inferior { margin: auto auto 0; width: 100%; max-width: 100%; border
   #ticket { position: fixed; left: 0; right: 0; bottom: calc(62px + var(--sab)); z-index: 15; border-radius: 16px 16px 0 0; max-height: 80dvh; overflow: auto; display: none; flex-direction: column; box-shadow: 0 -8px 24px #0006; }
   #ticket.con-lineas { display: flex; }
   #ticket > * { order: 1; }
-  #ticket:not(.abierta) > :not(.ticket-cabecera):not(.total-cobrar):not(#cobrar) { display: none; }
   #ticket:not(.abierta) .total-cobrar { display: none; }
   .ticket-cabecera { display: flex; justify-content: space-between; align-items: center; min-height: 44px; cursor: pointer; }
   .ticket-cabecera h2 { margin: 0; }
@@ -259,8 +260,96 @@ dialog.hoja-inferior { margin: auto auto 0; width: 100%; max-width: 100%; border
   .ajustes, .solo-preferencias { grid-template-columns: minmax(0, 1fr); }
   .columna, .ajustes > * { min-width: 0; }
   .logo-campo { flex-wrap: wrap; }
-  #vista-factura { display: none; }
   .permisos { grid-template-columns: 1fr; }
   #aviso { left: 16px; right: 16px; bottom: calc(76px + var(--sab)); text-align: center; }
 }
 .olvido { margin: -4px 0 4px; text-align: right; font-size: 13px; }
+
+/* Elementos solo de escritorio / solo de teléfono */
+.solo-m, #contador-alertas { display: none; }
+.cliente-det summary { display: none; } /* en escritorio el campo Cliente se ve siempre */
+.cliente-det { margin: 0; }
+#vaciar { width: 100%; margin-top: 6px; }
+.menu-mas .icono-nav { display: inline-block; vertical-align: -5px; margin-right: 12px; }
+
+@media (max-width: 720px) {
+  .solo-d { display: none !important; }
+  .solo-m { display: revert; }
+  .lateral nav a #contador-productos { display: none; }
+  .lateral nav a #contador-alertas:not([hidden]) { display: block; }
+  h1 { font-size: 19px; }
+  .cabecera { margin-bottom: 4px; }
+  .cabecera > div:first-child .sub { margin-bottom: 8px; }
+
+  /* Listas como tarjetas sueltas, sin doble marco */
+  .panel:has(> table.tarjetizable) { background: none; border: 0; padding: 0; }
+  table.tarjetizable, table.tarjetizable tbody { display: block; }
+  table.tarjetizable tbody { display: flex; flex-direction: column; gap: 8px; }
+  table.tarjetizable tr { background: var(--panel); border: 1px solid var(--borde); border-radius: 10px; padding: 12px; position: relative; }
+  .tabla-inventario td::before, .tabla-ventas td::before, .tabla-gastos td::before { display: none !important; }
+
+  /* Tocar la tarjeta = editar / abrir factura (botón invisible que cubre la tarjeta; sigue accesible por teclado) */
+  .tabla-inventario .c-accion button, .tabla-gastos .c-accion button, .tabla-ventas .c-accion button[data-pdf] { position: absolute; inset: 0; opacity: 0; min-height: 0; z-index: 1; }
+  .tabla-inventario .c-accion button:focus-visible, .tabla-gastos .c-accion button:focus-visible, .tabla-ventas button[data-pdf]:focus-visible { opacity: 1; background: transparent; outline: 2px solid var(--primario-claro); }
+  .tabla-inventario tr:has(button[data-editar])::after, .tabla-gastos tr::after { content: '›'; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--suave); font-size: 20px; }
+
+  /* Inventario: foto · nombre · precio / SKU · stock */
+  table.tabla-inventario tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "img nom pre" "img sku stk"; gap: 4px 12px; align-items: center; padding-right: 26px; }
+  .tabla-inventario .c-img { grid-area: img; } .tabla-inventario .mini { width: 44px; height: 44px; }
+  .tabla-inventario .c-nombre { grid-area: nom; font-weight: 600; font-size: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tabla-inventario .c-precio { grid-area: pre; font: 600 15px var(--mono); }
+  .tabla-inventario .c-sku { grid-area: sku; color: var(--suave); font-size: 12px; }
+  .tabla-inventario .c-stock { grid-area: stk; text-align: right !important; }
+  .tabla-inventario .c-cat, .tabla-inventario .c-costo, .tabla-inventario .c-margen { display: none; }
+  .tabla-inventario .c-accion { position: static; }
+
+  /* Ventas: número · total / cliente · fecha · anular */
+  table.tabla-ventas tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "num tot" "cli cli" "fec acc"; gap: 2px 12px; align-items: center; }
+  .tabla-ventas .c-num { grid-area: num; font-weight: 600; }
+  .tabla-ventas .c-total { grid-area: tot; font: 600 16px var(--mono); }
+  .tabla-ventas .c-cliente { grid-area: cli; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tabla-ventas .c-fecha { grid-area: fec; color: var(--suave); font-size: 12px; }
+  .tabla-ventas .c-metodo, .tabla-ventas .c-art { display: none; }
+  .tabla-ventas .c-accion { grid-area: acc; position: static; justify-self: end; }
+  .tabla-ventas .boton-anular { position: relative; z-index: 2; background: none; border: 0; color: var(--peligro); padding: 0 4px; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Gastos: concepto · importe / fecha · categoría */
+  table.tabla-gastos tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "con imp" "fec cat"; gap: 2px 12px; padding-right: 26px; }
+  .tabla-gastos .c-concepto { grid-area: con; font-weight: 600; }
+  .tabla-gastos .c-importe { grid-area: imp; font: 600 15px var(--mono); }
+  .tabla-gastos .c-fecha { grid-area: fec; color: var(--suave); font-size: 12px; }
+  .tabla-gastos .c-cat { grid-area: cat; color: var(--suave); font-size: 12px; text-align: right; }
+  .tabla-gastos .c-metodo { display: none; }
+
+  /* "+ Nuevo" flotante y Exportar en el menú Más */
+  #nuevo-producto, #nuevo-gasto { position: fixed; right: 16px; bottom: calc(76px + var(--sab)); z-index: 18; min-height: 52px; padding: 0 20px; border-radius: 26px; box-shadow: 0 6px 18px #0007; flex: none !important; }
+  #vista button[id^="exportar-"] { display: none; }
+  .menu-mas a { justify-content: flex-start; align-items: center; }
+  .menu-mas .enlace-menu { all: unset; padding: 14px 8px; font-size: 16px; color: var(--texto); cursor: pointer; }
+
+  /* Punto de venta en lista: foto · nombre · precio / stock */
+  .rejilla { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .producto { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "foto nom pre" "foto chip pre"; gap: 2px 12px; align-items: center; min-height: 64px; padding: 8px 12px; position: relative; }
+  .producto .foto { grid-area: foto; width: 48px; height: 48px; }
+  .producto b { grid-area: nom; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .producto .chip { grid-area: chip; justify-self: start; }
+  .producto .precio { grid-area: pre; margin: 0; font-size: 16px; }
+  .producto[data-en-ticket] { border-color: var(--primario); }
+  .producto[data-en-ticket]::after { content: attr(data-en-ticket); position: absolute; top: -6px; right: -4px; background: var(--primario); color: var(--texto-primario, #111); font: 600 11px var(--mono); padding: 2px 6px; border-radius: 10px; }
+  .pos { padding-bottom: 120px; }
+
+  /* Ticket: cobrar con el pulgar; el método también se elige plegado */
+  #ticket:not(.abierta) > :not(.ticket-cabecera):not(.metodos):not(#cobrar) { display: none; }
+  #ticket .total-cobrar { display: none; }
+  #ticket .metodos { order: 2; margin: 8px 0; }
+  #ticket #cobrar { order: 3; font-size: 16px; }
+  #ticket:not(.abierta) .metodos button { min-height: 40px; }
+  #ticket .cliente-det summary { display: block; color: var(--primario-claro); padding: 10px 0; cursor: pointer; list-style: none; }
+  #ticket #vaciar { order: 1; width: auto; align-self: flex-end; background: none; border: 0; color: var(--peligro); text-decoration: underline; min-height: 36px; margin: 0; }
+
+  /* Formularios: Guardar ancho, Eliminar discreto, foto más baja */
+  .hoja-pie .acciones { flex: 1; justify-content: flex-end; }
+  .hoja-pie .acciones .primario { flex: 1; }
+  .hoja-pie #borrar { background: none; border: 0; color: var(--peligro); text-decoration: underline; padding: 0 8px; }
+  .foto-zona { height: 120px; }
+}

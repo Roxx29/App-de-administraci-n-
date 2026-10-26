@@ -182,6 +182,26 @@ function crearNucleo({ S, normalizar, almacen, almacenSesion, crearCliente, conf
   ];
   const mensajeAcceso = (e) => (MENSAJES_ACCESO.find(([re]) => re.test(e.message)) || [null, e.message])[1];
 
+  // Acepta el código del correo o, si la plantilla de Supabase aún manda un enlace, ese enlace pegado:
+  // sin abrir lleva ?token=…; ya abierto, la dirección del navegador lleva #access_token=….
+  function verificarRecuperacion(email, codigo) {
+    if (!/^https?:\/\//i.test(codigo)) return cliente.auth.verifyOtp({ email, token: codigo, type: 'recovery' });
+    let url;
+    try {
+      url = new URL(codigo);
+    } catch {
+      return { error: { message: 'Token has expired or is invalid' } };
+    }
+    const sesion = new URLSearchParams(url.hash.slice(1));
+    if (sesion.get('type') === 'recovery' && sesion.get('access_token') && sesion.get('refresh_token')) {
+      return cliente.auth.setSession({ access_token: sesion.get('access_token'), refresh_token: sesion.get('refresh_token') });
+    }
+    if (url.searchParams.get('type') === 'recovery' && url.searchParams.get('token')) {
+      return cliente.auth.verifyOtp({ token_hash: url.searchParams.get('token'), type: 'recovery' });
+    }
+    return { error: { message: 'Token has expired or is invalid' } };
+  }
+
   const cuenta = {
     estado: () => ({ configurado: !!config, email: usuario?.email ?? null, rol: usuario ? miembro().rol : 'admin', serie: usuario ? miembro().serie : '', permisos: usuario ? miembro().permisos || [] : [] }),
     async entrar({ email, clave }) {
@@ -216,7 +236,7 @@ function crearNucleo({ S, normalizar, almacen, almacenSesion, crearCliente, conf
     async restablecer({ email, codigo, clave }) {
       if (!recuperando) {
         await almacen.escribir('recuperando.json', true); // si la app se cierra antes de terminar, esta sesión se descarta
-        const { error } = await cliente.auth.verifyOtp({ email: email.trim().toLowerCase(), token: codigo.trim(), type: 'recovery' });
+        const { error } = await verificarRecuperacion(email.trim().toLowerCase(), codigo.trim());
         if (error) {
           await almacen.escribir('recuperando.json', false);
           return { error: mensajeAcceso(error) };

@@ -1,6 +1,6 @@
 {
   "name": "apex-ledger-movil",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "description": "ApexLedger para Android (Capacitor) con la misma interfaz que el escritorio.",
   "scripts": {

@@ -982,7 +982,7 @@ function mostrarRestablecer(email = '') {
       <form class="acceso-caja" id="form-codigo" novalidate>
         <h1>${t('Revisa tu correo')}</h1>
         <p class="sub">${t('Si existe una cuenta con {c}, te enviamos un código. Escríbelo y elige tu contraseña nueva.', { c: esc(correo) })}</p>
-        <label>${t('Código')}<input name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required></label>
+        <label>${t('Código (o pega aquí el enlace del correo)')}<input name="codigo" autocomplete="one-time-code" required></label>
         <label>${t('Contraseña nueva')}<input name="clave" type="password" autocomplete="new-password" minlength="8" required></label>
         <label>${t('Repite la contraseña')}<input name="clave2" type="password" autocomplete="new-password" minlength="8" required></label>
         <p class="error" id="error-codigo" role="alert"></p>
@@ -998,14 +998,15 @@ function mostrarRestablecer(email = '') {
     };
     f.onsubmit = async (e) => {
       e.preventDefault();
-      const codigo = f.elements.codigo.value.replace(/\s/g, '');
+      const codigo = f.elements.codigo.value.trim();
+      const esEnlace = /^https?:\/\//i.test(codigo);
       const clave = f.elements.clave.value;
-      const error = !/^\d{6,10}$/.test(codigo) && !f.elements.codigo.readOnly ? t('Escribe el código que recibiste por correo.')
+      const error = !esEnlace && !/^\d{6,10}$/.test(codigo.replace(/\s/g, '')) && !f.elements.codigo.readOnly ? t('Escribe el código que recibiste por correo.')
         : clave.length < 8 ? t('La contraseña debe tener al menos 8 caracteres.')
         : clave !== f.elements.clave2.value ? t('Las contraseñas no coinciden.') : '';
       if (error) return ($('#error-codigo').textContent = error);
       $('#boton-codigo').disabled = true;
-      const r = await window.api.cuenta.restablecer({ email: correo, codigo, clave });
+      const r = await window.api.cuenta.restablecer({ email: correo, codigo: esEnlace ? codigo : codigo.replace(/\s/g, ''), clave });
       $('#boton-codigo').disabled = false;
       if (r.error) {
         $('#error-codigo').textContent = t(r.error);

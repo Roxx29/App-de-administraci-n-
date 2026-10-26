@@ -63,3 +63,23 @@ test('restablecer contraseña: código, reintento sin código nuevo y sesión a 
   assert.deepStrictEqual(llamadas, [['salir', 'local']]);
   assert.strictEqual(await almacen.leer('recuperando.json'), false);
 });
+
+test('restablecer también acepta el enlace del correo pegado (abierto o sin abrir)', async () => {
+  const usados = [];
+  const auth = {
+    getSession: async () => ({ data: { session: null } }),
+    verifyOtp: async (o) => (usados.push(['verifyOtp', o.token_hash]), o.token_hash === 'abc' ? { error: null } : { error: { message: 'Token has expired or is invalid' } }),
+    setSession: async (o) => (usados.push(['setSession', o.refresh_token]), { error: null }),
+    updateUser: async () => ({ data: { user: { id: 'u1', email: 'a@x.com' } } }),
+    signOut: async () => ({}),
+  };
+  const cliente = { auth, rpc: async () => ({ error: { code: 'PGRST202' } }), from: () => ({}) };
+  const crear = () => crearNucleo({ S, normalizar, almacen: almacenEnMemoria(), config: { supabaseUrl: 'x', supabaseAnonKey: 'y' }, crearCliente: () => cliente, avisar: () => {}, programar: () => 0, cancelar: () => {} });
+  let n = crear(); await n.iniciar();
+  assert.ok((await n.cuenta.restablecer({ email: 'a@x.com', codigo: 'https://p.supabase.co/auth/v1/verify?token=abc&type=recovery&redirect_to=http://localhost:3000', clave: 'larga-y-buena' })).email);
+  n = crear(); await n.iniciar();
+  assert.ok((await n.cuenta.restablecer({ email: 'a@x.com', codigo: 'http://localhost:3000/#access_token=AT&expires_in=3600&refresh_token=RT&token_type=bearer&type=recovery', clave: 'larga-y-buena' })).email);
+  n = crear(); await n.iniciar();
+  assert.match((await n.cuenta.restablecer({ email: 'a@x.com', codigo: 'https://ejemplo.com/otra-cosa', clave: 'larga-y-buena' })).error, /incorrecto/);
+  assert.deepStrictEqual(usados, [['verifyOtp', 'abc'], ['setSession', 'RT']]);
+});

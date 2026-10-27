@@ -1,7 +1,7 @@
 {
   "name": "guarmo",
   "productName": "Guarmo",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Guarmo: administración para pymes. Productos, inventario, ventas, facturas y exportación a Excel.",
   "main": "main.js",
   "author": "Guarmo",

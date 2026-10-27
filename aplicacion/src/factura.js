@@ -7,7 +7,7 @@ function htmlFactura(v, ajustes, { t, esc, dinero, fecha }) {
   const doc = `<div class="doc"><div class="titulo">${esc(f.titulo || t('FACTURA'))}</div><div><b>${v.numero}</b></div><div>${fecha(v.fecha)}</div></div>`;
   const filas = v.lineas.map((l) => `<tr><td>${esc(l.nombre)}${f.mostrarSku ? ` <small>(${esc(l.sku)})</small>` : ''}</td>
     <td class="n">${l.cantidad}</td><td class="n">${dinero(l.precio)}</td><td class="n">${dinero(l.precio * l.cantidad)}</td></tr>`).join('');
-  const c = /^#[0-9a-f]{6}$/i.test(f.color) ? f.color : '#b45309';
+  const c = /^#[0-9a-f]{6}$/i.test(f.color) ? f.color : '#1E3B8B';
   const estilos = {
     clasica: `.cab{border-bottom:3px solid ${c};padding-bottom:16px} .nombre,.titulo{color:${c}} th{border-bottom:2px solid ${c}}`,
     moderna: `.cab{background:${c};color:#fff;margin:-40px -40px 0;padding:32px 40px} .cab small{color:#fff} th{background:${c}22;color:${c}} tbody tr:nth-child(even){background:#f6f6f6} .total td{background:${c};color:#fff}`,

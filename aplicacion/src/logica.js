@@ -14,7 +14,7 @@ let tr = (texto, p = {}) => texto.replace(/\{(\w+)\}/g, (_, k) => p[k]);
 const fijarTraductor = (fn) => (tr = fn);
 
 const facturaInicial = () => ({
-  titulo: 'FACTURA SIMPLIFICADA', color: '#b45309', plantilla: 'clasica', logoPos: 'izquierda',
+  titulo: 'FACTURA SIMPLIFICADA', color: '#1E3B8B', plantilla: 'clasica', logoPos: 'izquierda',
   mostrarLogo: true, mostrarSku: true, mostrarMetodo: true, cabecera: '', pie: 'Gracias por su compra.', notas: '',
 });
 

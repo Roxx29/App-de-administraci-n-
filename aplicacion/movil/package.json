@@ -1,6 +1,6 @@
 {
   "name": "guarmo-movil",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "description": "Guarmo para Android (Capacitor) con la misma interfaz que el escritorio.",
   "scripts": {

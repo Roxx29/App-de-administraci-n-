@@ -3,8 +3,10 @@
   --sab: max(env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px));
   --fondo: #0b1220; --panel: #111a2e; --panel-2: #18233a; --borde: #233150;
   --texto: #dfe5f5; --suave: #8a96b3;
-  --primario: #d97706; --primario-claro: #fdba74;
-  --secundario: #059669; --secundario-claro: #6ee7b7;
+  /* Marca Guarmo: azul #1E3B8B (más luminoso sobre fondo oscuro) y verde #10B982. El ámbar queda solo para avisos. */
+  --primario: #3D63DD; --primario-claro: #93AEF7; --texto-primario: #fff;
+  --secundario: #10B982; --secundario-claro: #6EE7B7;
+  --aviso: #fdba74;
   --terciario: #0ea5e9; --peligro: #f43f5e;
   --serie-1: #0284c7; --serie-2: #d97706; /* validado CVD sobre fondo oscuro */
   --mono: 'JetBrains Mono', monospace; --sans: 'Hanken Grotesk', system-ui, sans-serif;
@@ -13,7 +15,7 @@
 :root[data-tema="claro"] {
   --fondo: #e4e8f8; --panel: #f3f5fe; --panel-2: #e6eafa; --borde: #c8d0ec;
   --texto: #0f172a; --suave: #4a5672;
-  --primario: #b45309; --primario-claro: #92400e; --texto-primario: #fff;
+  --primario: #1E3B8B; --primario-claro: #1E3B8B; --texto-primario: #fff; --aviso: #92400e;
   --secundario: #047857; --secundario-claro: #047857; --peligro: #be123c;
   --serie-1: #0369a1; --serie-2: #b45309; /* validado CVD sobre fondo claro */
 }
@@ -51,7 +53,7 @@ th { text-align: left; font-size: 11px; color: var(--suave); text-transform: upp
 td { padding: 8px; border-bottom: 1px solid var(--borde); }
 td.num, th.num { text-align: right; font-family: var(--mono); }
 .chip { white-space: nowrap; font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--panel-2); color: var(--suave); }
-.ok { color: var(--secundario-claro); } .bajo { color: var(--primario-claro); } .agotado { color: var(--peligro); }
+.ok { color: var(--secundario-claro); } .bajo { color: var(--aviso); } .agotado { color: var(--peligro); }
 .chip.ok { background: #05966922; } .chip.bajo { background: #d9770622; } .chip.agotado { background: #f43f5e22; }
 input, select, textarea { font: 14px var(--sans); background: var(--fondo); color: var(--texto); border: 1px solid var(--borde); border-radius: 6px; padding: 8px 10px; width: 100%; }
 label { display: block; font-size: 11px; color: var(--suave); margin-bottom: 10px; }
@@ -158,7 +160,7 @@ body.sin-sesion > aside, body.sin-sesion > main { display: none; }
 button.enlace { background: none; border: 0; padding: 0; color: var(--primario-claro); text-decoration: underline; text-underline-offset: 3px; }
 .cuenta-linea { display: flex; flex-direction: column; gap: 2px; margin: 0 0 12px; }
 .cuenta-linea small { color: var(--suave); font-size: 11px; }
-.estado-local.bajo { color: var(--primario-claro); } .estado-local.agotado { color: var(--peligro); }
+.estado-local.bajo { color: var(--aviso); } .estado-local.agotado { color: var(--peligro); }
 /* Equipo */
 .solo-preferencias { grid-template-columns: minmax(320px, 520px); }
 .tabla-equipo { margin: 10px 0 14px; }

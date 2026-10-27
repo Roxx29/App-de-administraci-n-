@@ -1,4 +1,4 @@
--- ApexLedger 003: permisos por persona y anulación de ventas. Ejecutar después de 002.
+-- Guarmo (antes ApexLedger) 003: permisos por persona y anulación de ventas. Ejecutar después de 002.
 -- El rol es una plantilla: el admin tiene todo; al resto se le activan permisos uno a uno.
 -- Comprobados por el servidor: crear_productos, editar_productos, editar_precios, ajustar_stock, anular_ventas, gastos.
 -- Solo en la app (el servidor no puede distinguirlos): vender_sin_conexion, ver_informes, exportar.

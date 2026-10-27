@@ -11,6 +11,12 @@ const { crearNucleo } = require('./nucleo.js');
 // Los datos viven en datos.json (funciona sin internet) y se sincronizan con Supabase si hay sesión.
 const ruta = (nombre) => path.join(app.getPath('userData'), nombre);
 
+// La app se llamaba ApexLedger: si es la primera vez como Guarmo, se traen los datos y la sesión de la carpeta anterior.
+const carpetaAnterior = path.join(app.getPath('appData'), 'ApexLedger');
+if (!fs.existsSync(ruta('datos.json')) && fs.existsSync(path.join(carpetaAnterior, 'datos.json'))) {
+  fs.cpSync(carpetaAnterior, app.getPath('userData'), { recursive: true });
+}
+
 function leerJson(nombre) {
   try {
     return JSON.parse(fs.readFileSync(ruta(nombre), 'utf8'));
@@ -104,7 +110,7 @@ function crearVentana() {
     minWidth: 1024,
     minHeight: 640,
     backgroundColor: '#0b1220',
-    title: 'ApexLedger',
+    title: 'Guarmo',
     icon: path.join(__dirname, 'build', 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },

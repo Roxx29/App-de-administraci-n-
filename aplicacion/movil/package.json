@@ -1,8 +1,8 @@
 {
-  "name": "apex-ledger-movil",
-  "version": "0.10.0",
+  "name": "guarmo-movil",
+  "version": "0.11.0",
   "private": true,
-  "description": "ApexLedger para Android (Capacitor) con la misma interfaz que el escritorio.",
+  "description": "Guarmo para Android (Capacitor) con la misma interfaz que el escritorio.",
   "scripts": {
     "preparar": "node preparar-www.js",
     "sync": "node preparar-www.js && cap sync android"

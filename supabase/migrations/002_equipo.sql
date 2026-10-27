@@ -1,4 +1,4 @@
--- ApexLedger 002: varias personas por empresa (roles admin / trabajador).
+-- Guarmo (antes ApexLedger) 002: varias personas por empresa (roles admin / trabajador).
 -- Ejecutar en Supabase → SQL Editor después de 001. Requiere "Confirm email" activado en Authentication.
 -- registros.owner_id pasa a ser el id de la EMPRESA (para los dueños actuales vale lo mismo que su id de usuario).
 

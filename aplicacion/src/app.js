@@ -707,8 +707,7 @@ function aplicarAjustes() {
   document.documentElement.lang = pref.idioma;
   fijarIdioma(pref.idioma);
   $('#nombre-negocio').textContent = a.negocio.toUpperCase();
-  $('#logo').innerHTML = a.logo ? `<img src="${a.logo}" alt="">` : '▣';
-  $('#logo').classList.toggle('con-imagen', !!a.logo);
+  $('#logo').innerHTML = `<img src="${a.logo || 'marca.png'}" alt="">`;
   pintarSync();
   const menu = [['resumen', 'Resumen Diario'], ['inventario', 'Inventario & Catálogo'], ['venta', 'Punto de Venta'], ['ventas', 'Ventas & Facturas'], ['gastos', 'Gastos Operativos'], ['informes', 'Informes & Rentabilidad'], ['ajustes', 'Ajustes']];
   // En el teléfono la barra inferior muestra 4 destinos y "Más" para el resto.
@@ -918,7 +917,7 @@ function mostrarAcceso(aviso = '') {
   caja.hidden = false;
   caja.innerHTML = `
     <form class="acceso-caja" id="form-acceso">
-      <div class="marca"><span class="logo">▣</span><div><b>ApexLedger</b><small>${t('Administración para tu negocio')}</small></div></div>
+      <div class="marca"><span class="logo con-imagen"><img src="marca.png" alt=""></span><div><b>Guarmo</b><small>${t('Tu empresa, en orden.')}</small></div></div>
       <h1 id="acceso-titulo">${t('Iniciar sesión')}</h1>
       <p class="sub">${t('Tus datos se guardan en este equipo y se sincronizan con la nube.')}</p>
       <label>${t('Correo')}<input name="email" type="email" required autocomplete="email"></label>

@@ -1,4 +1,4 @@
-# ApexLedger (aplicación)
+# Guarmo (aplicación)
 
 App de escritorio para pymes: productos, inventario, punto de venta, facturas PDF y exportación a Excel.
 Hecha con Electron + HTML/JS; la lógica de negocio está en `src/logica.js` para reutilizarla en móvil.
@@ -6,7 +6,7 @@ Hecha con Electron + HTML/JS; la lógica de negocio está en `src/logica.js` par
 - `npm install` → instalar
 - `npm start` → abrir la app
 - `npm test` → pruebas
-- `npm run build:win` → genera `dist/ApexLedger-<versión>.exe` (portable, no necesita instalación). Desde Linux: `npm run build:win:linux` (sin ícono en el .exe; el de GitHub Actions sí lo lleva)
+- `npm run build:win` → genera `dist/Guarmo-<versión>.exe` (portable, no necesita instalación). Desde Linux: `npm run build:win:linux` (sin ícono en el .exe; el de GitHub Actions sí lo lleva)
 
 Los datos se guardan en `datos.json` dentro de la carpeta de usuario de la app (con respaldo automático) hasta que se elija base de datos.
 
@@ -32,7 +32,7 @@ Pruebas de seguridad: `PGHOST=… sh supabase/pruebas/ejecutar.sh` sobre un Post
 ## Restablecer contraseña
 
 "¿Olvidaste tu contraseña?" en la pantalla de acceso envía un **código** por correo (sin enlaces: las apps no abren enlaces de correo). Configuración necesaria en Supabase:
-1. Authentication → Emails → plantilla **Reset Password**: incluir `{{ .Token }}` y quitar `{{ .ConfirmationURL }}`. Por ejemplo: `<p>Tu código para restablecer la contraseña de ApexLedger es: <b>{{ .Token }}</b></p>`.
+1. Authentication → Emails → plantilla **Reset Password**: incluir `{{ .Token }}` y quitar `{{ .ConfirmationURL }}`. Por ejemplo: `<p>Tu código para restablecer la contraseña de Guarmo es: <b>{{ .Token }}</b></p>`.
 2. Authentication → Providers → Email: caducidad del código (OTP) de 15 minutos.
 3. Authentication → Passwords: longitud mínima 8.
 4. El correo integrado de Supabase envía pocos correos por hora; para uso real, configurar un SMTP propio (Authentication → SMTP).

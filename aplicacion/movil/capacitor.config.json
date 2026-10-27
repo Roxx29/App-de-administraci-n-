@@ -1,6 +1,6 @@
 {
-  "appId": "com.apexledger.app",
-  "appName": "ApexLedger",
+  "appId": "com.guarmo.app",
+  "appName": "Guarmo",
   "webDir": "www",
   "android": {
     "webContentsDebuggingEnabled": false,

@@ -1,4 +1,4 @@
--- ApexLedger: datos de cada empresa (una cuenta = una empresa).
+-- Guarmo (antes ApexLedger): datos de cada empresa (una cuenta = una empresa).
 -- Ejecutar una vez en Supabase → SQL Editor.
 
 create table if not exists public.registros (

@@ -6,7 +6,7 @@
   const Share = Capacitor.registerPlugin('Share');
   const App = Capacitor.registerPlugin('App');
   const SystemBars = Capacitor.registerPlugin('SystemBars');
-  const Nativo = Capacitor.registerPlugin('ApexNativo'); // plugin propio: almacén seguro e impresión (android/…/ApexNativoPlugin.java)
+  const Nativo = Capacitor.registerPlugin('GuarmoNativo'); // plugin propio: almacén seguro e impresión (android/…/GuarmoNativoPlugin.java)
   const DATOS = 'DATA';
 
   // ---------- Cifrado de los archivos de datos ----------

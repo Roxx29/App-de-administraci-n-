@@ -1,4 +1,4 @@
-package com.apexledger.app;
+package com.guarmo.app;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -26,14 +26,14 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
 /**
- * Funciones nativas de ApexLedger:
+ * Funciones nativas de Guarmo:
  *  - Almacén seguro: valores cifrados con una clave AES del Android Keystore (la clave nunca sale del dispositivo).
  *  - Impresión: abre el diálogo de impresión de Android (incluye "Guardar como PDF") con el HTML de la factura.
  */
-@CapacitorPlugin(name = "ApexNativo")
-public class ApexNativoPlugin extends Plugin {
-    private static final String ALIAS = "apex_almacen_seguro";
-    private static final String PREFS = "apex_seguro";
+@CapacitorPlugin(name = "GuarmoNativo")
+public class GuarmoNativoPlugin extends Plugin {
+    private static final String ALIAS = "guarmo_almacen_seguro";
+    private static final String PREFS = "guarmo_seguro";
     private WebView vistaImpresion; // se mantiene viva mientras dura la impresión
 
     private SecretKey clave() throws Exception {

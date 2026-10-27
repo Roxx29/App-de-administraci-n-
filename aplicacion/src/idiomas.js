@@ -58,7 +58,7 @@ const TRADUCCIONES = {
     'Cuenta': 'Account', 'Sincronizar ahora': 'Sync now', 'Cerrar sesión': 'Sign out', '¿Cerrar sesión?': 'Sign out?',
     'Hay {n} cambios sin subir a la nube. Si cierras sesión se subirán cuando vuelvas a entrar. ¿Cerrar sesión?': 'There are {n} changes not uploaded yet. They will upload when you sign in again. Sign out?',
     '{n} sin subir': '{n} not uploaded', 'Sincronizando…': 'Syncing…', 'Sincronizado {h}': 'Synced {h}', 'Sin conexión': 'Offline',
-    'Error al sincronizar': 'Sync error', 'Conectado': 'Connected', 'Administración para tu negocio': 'Management for your business',
+    'Error al sincronizar': 'Sync error', 'Conectado': 'Connected', 'Tu empresa, en orden.': 'Your business, in order.',
     'Iniciar sesión': 'Sign in', 'Tus datos se guardan en este equipo y se sincronizan con la nube.': 'Your data is saved on this computer and synced to the cloud.',
     'Correo': 'Email', 'Contraseña': 'Password', 'Entrar': 'Sign in', '¿No tienes cuenta?': "Don't have an account?", 'Crear cuenta': 'Create account',
     '¿Ya tienes cuenta?': 'Already have an account?', 'Te enviamos un correo para confirmar la cuenta. Confírmala y luego entra aquí.': 'We sent you an email to confirm your account. Confirm it, then sign in here.',
